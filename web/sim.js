@@ -32,24 +32,24 @@ export const WARDEN = 3;    // angelic monty
 
 export const TRIBES = [
   {
-    id: GUIDE, name: 'The Guide', variant: 'Monty Hall',
-    rule: 'Knows where the seam runs. Always knocks on an empty tunnel you did not pick.',
-    lesson: 'Switch. The knock was chosen with knowledge, so it moves the odds to 2/3.',
+    id: GUIDE, name: 'Tommy', variant: 'classic Monty Hall',
+    rule: 'A friendly spirit who knows where the ore is. Always knocks on an empty tunnel you didn’t pick.',
+    lesson: 'Switch. He knows, so the odds jump to 2 in 3.',
   },
   {
-    id: SETTLING, name: 'The Settling', variant: 'Monty Fall',
-    rule: 'No spirit at all. Timbers and air pockets settle at random, sometimes on the seam itself.',
-    lesson: 'A coin flip. A random knock that happens to sound hollow tells you nothing.',
+    id: SETTLING, name: 'The Creaks', variant: 'Monty slipped',
+    rule: 'No spirit at all, just old timbers settling at random. Sometimes right on top of the ore.',
+    lesson: 'Coin flip. A random creak tells you nothing.',
   },
   {
-    id: TRICKSTER, name: 'The Trickster', variant: 'Monty from Hell',
-    rule: 'Knocks only when your pick is already the seam, hoping to lure you off it.',
-    lesson: 'Stay when it knocks. Switch when it is silent.',
+    id: TRICKSTER, name: 'The Joker', variant: 'evil Monty',
+    rule: 'Only knocks when you already picked right, hoping you’ll bail.',
+    lesson: 'Knock means stay. Silence means switch.',
   },
   {
-    id: WARDEN, name: 'The Warden', variant: 'Angelic Monty',
-    rule: 'Knocks only when your pick is wrong, sealing the other empty tunnel.',
-    lesson: 'Switch when it knocks, stay when it is silent, and you never miss.',
+    id: WARDEN, name: 'Grandpa', variant: 'angel Monty',
+    rule: 'Only knocks when you picked wrong, to steer you off it.',
+    lesson: 'Knock means switch, silence means stay. Never misses.',
   },
 ];
 

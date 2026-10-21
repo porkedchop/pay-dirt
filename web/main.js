@@ -7,6 +7,9 @@ import { CANARIES } from './apprentice.js';
 const $ = (id) => document.getElementById(id);
 const ROMAN = ['I', 'II', 'III'];
 const SERIES = ['Apprentice', 'Parrot', 'Oracle', 'You'];
+// what people read. code keeps oracle / apprentice / parrot
+const NICK = { Oracle: 'Old Timer', Apprentice: 'Rookie', Parrot: 'Bookworm', You: 'You' };
+const nick = (n) => NICK[n] || n;
 const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
 
 const state = { speed: 1, paused: false, playAlong: false, sound: false, turbo: false };
@@ -131,13 +134,13 @@ async function forkCycle() {
 }
 
 function callLine(calls, f) {
-  const parts = Object.entries(calls).map(([n, c]) => `${n} ${c.action === 'switch' ? 'switches' : 'stays'}`);
+  const parts = Object.entries(calls).map(([n, c]) => `${nick(n)} ${c.action === 'switch' ? 'switches' : 'stays'}`);
   return parts.join(', ') + '.';
 }
 
 function resultLine({ calls }, f) {
   if (f.ring) return `The seam was in ${ROMAN[f.seam]}, now buried. Nobody strikes ore here.`;
-  const winners = Object.entries(calls).filter(([, c]) => (c.action === 'switch' ? f.switchWins : f.stayWins)).map(([n]) => n);
+  const winners = Object.entries(calls).filter(([, c]) => (c.action === 'switch' ? f.switchWins : f.stayWins)).map(([n]) => nick(n));
   const site = SITES[ex.world.region.site];
   return `The seam ran through ${ROMAN[f.seam]}. ${winners.length ? `${winners.join(' and ')} struck ${site.ore}.` : 'Nobody struck ore.'}`;
 }
@@ -168,7 +171,7 @@ async function runLoop() {
           renderFork(last.f, ex.world.region, last.calls);
           cave.showCalls(last.calls, last.f);
           renderCalls(last.calls, last.f);
-          narrate(`Turbo: fork ${last.f.index + 1}. The Apprentice is training as fast as your CPU allows.`);
+          narrate(`Turbo: fork ${last.f.index + 1}. The Rookie is practicing as fast as your computer can go.`);
         }
       }
       await new Promise((r) => requestAnimationFrame(r));
@@ -201,7 +204,7 @@ function renderCalls(calls, f) {
     const t = c.action === 'switch' ? f.target : f.pick;
     const p = c.action === 'switch' ? c.pSwitch : c.pStay;
     const conf = p === null || p === undefined ? '' : `<span class="p">${fmtPct(p)}</span>`;
-    return `<span class="chip"><i style="background:${hex(MINER_COLORS[name])}"></i>${name} <b>${c.action}</b> → ${ROMAN[t]}${conf}</span>`;
+    return `<span class="chip"><i style="background:${hex(MINER_COLORS[name])}"></i>${nick(name)} <b>${c.action}</b> → ${ROMAN[t]}${conf}</span>`;
   }).join('');
 }
 
@@ -230,11 +233,11 @@ function renderBelief() {
 function renderScores(s) {
   const rows = SERIES.filter((n) => s.miners[n]).map((n) => {
     const m = s.miners[n];
-    return `<tr><td><i style="background:${hex(MINER_COLORS[n])}"></i>${n}</td>
+    return `<tr><td><i style="background:${hex(MINER_COLORS[n])}"></i>${nick(n)}</td>
       <td>${m.ore}</td><td>${fmtPct(m.winRate)}</td>
       <td>${m.recentRegretPer100 === null ? '' : m.recentRegretPer100.toFixed(1)}</td></tr>`;
   }).join('');
-  $('scores').innerHTML = `<thead><tr><th>Miner</th><th>Ore</th><th>Win rate</th><th>Regret per 100</th></tr></thead><tbody>${rows}</tbody>`;
+  $('scores').innerHTML = `<thead><tr><th>Miner</th><th>Ore</th><th>Hit rate</th><th>Missed per 100</th></tr></thead><tbody>${rows}</tbody>`;
   $('forkCount').textContent = `${ex.world.forkCount.toLocaleString()} forks`;
 }
 
@@ -274,7 +277,7 @@ function renderChart() {
   }
   labels.sort((a, b) => a.y - b.y);
   for (let i = 1; i < labels.length; i++) if (labels[i].y - labels[i - 1].y < 11) labels[i].y = labels[i - 1].y + 11;
-  for (const l of labels) svg += `<text class="dlabel" x="${W - R + 6}" y="${l.y + 3}">${l.n}</text>`;
+  for (const l of labels) svg += `<text class="dlabel" x="${W - R + 6}" y="${l.y + 3}">${nick(l.n)}</text>`;
   svg += `<g id="hover" visibility="hidden"><line class="cross" y1="${T}" y2="${ys(0)}"/></g><rect class="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}"/>`;
   $('chart').innerHTML = svg;
   chartGeom = { xs, ys, L, R, W, xmax, series };
@@ -304,7 +307,7 @@ function bindChartHover() {
       const s = ex.stats[n].series;
       let lo = 0, hi = s.length - 1;
       while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (s[mid][0] <= fork) lo = mid; else hi = mid - 1; }
-      return `<div><i style="background:${hex(MINER_COLORS[n])}"></i>${n}<b>${s[lo][1].toFixed(1)}</b></div>`;
+      return `<div><i style="background:${hex(MINER_COLORS[n])}"></i>${nick(n)}<b>${s[lo][1].toFixed(1)}</b></div>`;
     }).join('');
     tip.innerHTML = `<div class="tt">Fork ${fork.toLocaleString()}</div>${rows}`;
     tip.hidden = false;
@@ -324,10 +327,10 @@ const CANARY_SVG = (alive) => `<svg viewBox="0 0 32 28" aria-hidden="true">
 
 function renderCanaries(s) {
   $('canaries').innerHTML = ex.canaries.map((c) => {
-    const want = c.expect === 'either' ? 'call it a coin flip' : `should ${c.expect}`;
+    const want = c.expect === 'either' ? 'it’s a coin flip' : `should ${c.expect}`;
     const got = `stay ${fmtPct(c.pStay)}, switch ${fmtPct(c.pSwitch)}`;
     const ev = c.knocked ? 'knock' : 'silence';
-    return `<div class="canary${c.alive ? '' : ' dead'}" tabindex="0" title="${c.tribe}, ${ev}: ${want}. Apprentice says ${got}.">
+    return `<div class="canary${c.alive ? '' : ' dead'}" tabindex="0" title="${c.tribe}, ${ev}: ${want}. Rookie says ${got}.">
       ${CANARY_SVG(c.alive)}<span>${c.tribe.replace('The ', '')}<br>${ev}</span></div>`;
   }).join('');
   $('canaryCount').textContent = `${s.canariesAlive} of ${s.canaries} alive`;
@@ -335,33 +338,33 @@ function renderCanaries(s) {
 
 function renderMetrics(s) {
   const last = s.adaptation.at(-1);
-  const adapt = !last ? 'no migration yet' : last.recoveredAfter === null ? `recovering, ${ex.world.forkCount - last.at} forks in` : `${last.recoveredAfter} forks`;
+  const adapt = !last ? 'no move yet' : last.recoveredAfter === null ? `still shaky, ${ex.world.forkCount - last.at} forks in` : `${last.recoveredAfter} forks`;
   $('metrics').innerHTML = [
-    ['Calibration error', s.calibrationError.toFixed(3), 'When it says 70%, does it win 70% of the time? Lower is better.'],
-    ['Weather sway', s.weatherSway.toFixed(3), 'How much its odds move if the same fork had another mine’s weather. Weather never matters, so this should shrink.'],
-    ['Agrees with the Oracle', s.agreement === null ? '' : fmtPct(s.agreement), 'On the last 50 forks where the choice mattered.'],
-    ['Recovery after migration', adapt, 'Forks until its regret is back to the level before the knockers moved.'],
+    ['Gut check', s.calibrationError.toFixed(3), 'When it feels 70% sure, does it hit 70% of the time? Closer to zero is better.'],
+    ['Distracted by weather', s.weatherSway.toFixed(3), 'How much its guess changes if the same fork had another mine’s weather. Weather never matters, so this should shrink.'],
+    ['Agrees with Old Timer', s.agreement === null ? '' : fmtPct(s.agreement), 'On the last 50 forks where the choice mattered.'],
+    ['Bounce back', adapt, 'Forks it took to get its game back after the knockers last moved.'],
   ].map(([k, v, h]) => `<div class="metric"><dt>${k}</dt><dd>${v}</dd><p>${h}</p></div>`).join('');
   $('params').textContent = ex.apprentice.parameterCount().toLocaleString();
 }
 
 function renderLedger() {
   const rows = ex.ledger.slice(-5).reverse().map((r) => {
-    const src = r.source === 'drand' ? `drand round ${r.detail.round.toLocaleString()}` : r.source === 'local' ? 'browser crypto' : 'chained hash';
+    const src = r.source === 'drand' ? `drand round ${r.detail.round.toLocaleString()}` : r.source === 'local' ? 'your browser' : 'last seed, rehashed';
     return `<li><span>Region ${r.region + 1}</span><span>${src}</span><span>${r.site}</span><code>${r.seed.toString(16).padStart(8, '0')}</code></li>`;
   }).join('');
   $('ledger').innerHTML = rows;
   $('entropyStatus').textContent = well.status === 'live'
-    ? 'Live: seeds come from the drand beacon mixed with the weather above eight real mines.'
-    : 'This sandbox blocks live requests, so seeds come from your browser’s crypto and the weather is a recorded snapshot. Run it locally for the drand beacon and live weather.';
+    ? 'Live: every region is rolled from a public random beacon mixed with the real weather above eight mines.'
+    : 'This preview can’t reach the internet, so the dice come from your browser and the weather is a saved snapshot. Run it yourself for the live beacon and live weather.';
 }
 
 function renderPast() {
   $('past').innerHTML = ex.closed.slice(-14).reverse().map((p) => {
     const t = TRIBES[p.tribe];
     const ok = p.guess === p.tribe;
-    return `<li title="${t.name} under ${p.site}. Oracle's last guess: ${TRIBES[p.guess].name}"><span class="pt">${t.name.replace('The ', '')}</span><span class="${ok ? 'ok' : 'miss'}">${ok ? 'named' : 'fooled'}</span></li>`;
-  }).join('') || '<li class="empty">The first region is still open. Its knocker is named when the crew leaves.</li>';
+    return `<li title="${t.name} under ${p.site}. Old Timer guessed ${TRIBES[p.guess].name}"><span class="pt">${t.name.replace('The ', '')}</span><span class="${ok ? 'ok' : 'miss'}">${ok ? 'called it' : 'fooled'}</span></li>`;
+  }).join('') || '<li class="empty">Still in the first stretch. You find out who was knocking when the crew moves on.</li>';
 }
 
 // ---------- controls
@@ -387,7 +390,7 @@ function bindControls() {
   });
   $('btnMigrate').addEventListener('click', () => {
     ex.migrateNow();
-    narrate('The knockers have moved house. Every rock now hides a different spirit.');
+    narrate('The knockers packed up and moved. Every rock has a new neighbor now.');
     renderAll();
   });
   $('chkPlay').addEventListener('change', (e) => { state.playAlong = e.target.checked; });

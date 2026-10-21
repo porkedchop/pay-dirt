@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 GUIDE, SETTLING, TRICKSTER, WARDEN = 0, 1, 2, 3
-TRIBE_NAMES = ["The Guide", "The Settling", "The Trickster", "The Warden"]
+TRIBE_NAMES = ["Tommy", "The Creaks", "The Joker", "Grandpa"]
 STRATA_NAMES = ["Granite", "Killas", "Elvan", "Greenstone"]
 
 DEFAULTS = dict(

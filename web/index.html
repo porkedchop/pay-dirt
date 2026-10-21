@@ -172,7 +172,7 @@ label.toggle input { accent-color: var(--you); margin: 0; }
           <button type="button" data-speed="turbo" aria-pressed="false">Turbo</button>
         </span>
         <button id="btnSound" type="button" aria-pressed="false">Sound off</button>
-        <button id="btnMigrate" type="button" title="Move every knocker to a different rock. A drift test for the Apprentice.">Move the knockers</button>
+        <button id="btnMigrate" type="button" title="Every knocker moves to a different rock. See if the Rookie notices.">Move the knockers</button>
         <label class="toggle" for="chkPlay"><input type="checkbox" id="chkPlay"> Play along</label>
       </div>
     </div>
@@ -190,61 +190,61 @@ label.toggle input { accent-color: var(--you); margin: 0; }
   <aside class="panel">
     <header class="masthead">
       <h1>Who’s <span class="knock">Knocking</span></h1>
-      <p>Cornish miners believed spirits knocked on the walls. Some led you to ore, some lied, and some were just the timbers settling. Here every knock is a Monty Hall door, and <strong>the textbook answer, always switch, is only right when whoever knocked knows where the ore is.</strong> The Apprentice is a <strong><span id="params">710</span> parameter neural network</strong> training live in this tab. It is never told the rules. It has to work out who is knocking from the knocks alone.</p>
+      <p>Old Cornish miners swore spirits knocked on the walls. Some led you to ore, some messed with you, and some were just creaky timbers. Every knock here is a Monty Hall door, and <strong>“always switch” only works if whoever knocked actually knows where the ore is.</strong> The Rookie is a <strong>tiny AI (<span id="params">710</span> numbers)</strong> learning live in this tab. Nobody tells it the rules. It has to figure out who’s knocking on its own.</p>
     </header>
 
     <section>
-      <h3>Who’s knocking here? <span>Oracle’s belief</span></h3>
+      <h3>Who’s knocking? <span>Old Timer’s guess</span></h3>
       <div id="belief"></div>
-      <p class="hint">The Oracle knows the four rules but not which spirit haunts this rock. It updates on every knock. The true knocker is named when the crew leaves the region.</p>
+      <p class="hint">Old Timer knows every spirit’s habits but not which one lives in this rock. He sharpens his guess with every knock.</p>
       <ul class="past" id="past"></ul>
     </section>
 
     <section>
       <h3>Scoreboard <span id="forkCount">0 forks</span></h3>
       <table id="scores"></table>
-      <p class="hint">Every miner stands at the same fork with the same first pick and the same knock. Only the next move differs, so the gap is skill, not luck.</p>
+      <p class="hint">Everyone gets the same fork, the same first pick and the same knock. Only the next move is different, so the gap is skill, not luck.</p>
     </section>
 
     <section>
-      <h3>Regret <span>ore lost against perfect knowledge</span></h3>
+      <h3>Ore left on the table <span>vs. knowing the spirit</span></h3>
       <div class="legend">
-        <span><i style="background:var(--apprentice)"></i>Apprentice</span>
-        <span><i style="background:var(--parrot)"></i>Parrot, always switches</span>
-        <span><i style="background:var(--oracle)"></i>Oracle</span>
+        <span><i style="background:var(--apprentice)"></i>Rookie, the AI</span>
+        <span><i style="background:var(--parrot)"></i>Bookworm, always switches</span>
+        <span><i style="background:var(--oracle)"></i>Old Timer</span>
         <span><i style="background:var(--you)"></i>You</span>
       </div>
       <div class="chartwrap">
-        <svg id="chart" viewBox="0 0 340 180" role="img" aria-label="Cumulative regret by miner over forks"></svg>
+        <svg id="chart" viewBox="0 0 340 180" role="img" aria-label="Ore left on the table by each miner over time"></svg>
         <div class="tip" id="chartTip" hidden></div>
       </div>
-      <p class="hint">Flat means learned. The Apprentice’s line should bend toward the Oracle’s, and kink each time the knockers move.</p>
+      <p class="hint">Flatter is better. Watch the Rookie’s line level off toward Old Timer’s, then wobble each time the knockers move.</p>
     </section>
 
     <section>
       <h3>Canaries <span id="canaryCount"></span></h3>
       <div class="canaries" id="canaries"></div>
-      <p class="hint">Six probe forks the Apprentice is tested on every ten forks and never trained on. Each has a history only one spirit could have produced.</p>
+      <p class="hint">Six pop quizzes the Rookie takes every ten forks and never studies for. Each one has a pattern only one spirit could make. Miners used real canaries the same way.</p>
     </section>
 
     <section>
-      <h3>Live checks</h3>
+      <h3>How it’s doing</h3>
       <dl class="metrics" id="metrics"></dl>
     </section>
 
     <details>
-      <summary><h3>The four knockers</h3></summary>
+      <summary><h3>Meet the knockers</h3></summary>
       <ul class="tribes" id="tribes"></ul>
     </details>
 
     <section>
-      <h3>Entropy ledger</h3>
+      <h3>Where the dice come from</h3>
       <p class="hint" id="entropyStatus" style="margin:0 0 8px"></p>
       <ul class="ledger" id="ledger"></ul>
-      <p class="hint">Each region’s seed is SHA-256 of a drand beacon round and the weather above eight historic mines, the same trick as Cloudflare’s lava lamp wall. Refetch the round and the cave replays exactly.</p>
+      <p class="hint">Same trick as Cloudflare’s wall of lava lamps: real world chaos, scrambled into fair dice. Every roll is logged, so anyone can replay the exact same cave.</p>
     </section>
 
-    <p class="foot">Open source, runs free in your browser. No server, no API keys, no GPU.</p>
+    <p class="foot">Open source and free. Runs entirely in your browser.</p>
   </aside>
 </div>
 <script type="importmap">

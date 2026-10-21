@@ -215,12 +215,12 @@ const K_HIT = 0, K_MISS = 1, RING = 2, S_HIT = 3, S_MISS = 4;
 const pattern = (...kinds) => Array.from({ length: WINDOW }, (_, i) => kinds[i % kinds.length]);
 
 export const CANARIES = [
-  { id: 'guide-knock', tribe: 'The Guide', knocked: true, expect: 'switch', history: pattern(K_MISS, K_HIT, K_MISS) },
-  { id: 'settling-knock', tribe: 'The Settling', knocked: true, expect: 'either', history: pattern(K_MISS, RING, K_HIT) },
-  { id: 'trickster-knock', tribe: 'The Trickster', knocked: true, expect: 'stay', history: pattern(S_MISS, K_HIT, S_MISS) },
-  { id: 'trickster-silent', tribe: 'The Trickster', knocked: false, expect: 'switch', history: pattern(S_MISS, K_HIT, S_MISS) },
-  { id: 'warden-knock', tribe: 'The Warden', knocked: true, expect: 'switch', history: pattern(K_MISS, S_HIT, K_MISS) },
-  { id: 'warden-silent', tribe: 'The Warden', knocked: false, expect: 'stay', history: pattern(K_MISS, S_HIT, K_MISS) },
+  { id: 'guide-knock', tribe: 'Tommy', knocked: true, expect: 'switch', history: pattern(K_MISS, K_HIT, K_MISS) },
+  { id: 'settling-knock', tribe: 'The Creaks', knocked: true, expect: 'either', history: pattern(K_MISS, RING, K_HIT) },
+  { id: 'trickster-knock', tribe: 'The Joker', knocked: true, expect: 'stay', history: pattern(S_MISS, K_HIT, S_MISS) },
+  { id: 'trickster-silent', tribe: 'The Joker', knocked: false, expect: 'switch', history: pattern(S_MISS, K_HIT, S_MISS) },
+  { id: 'warden-knock', tribe: 'Grandpa', knocked: true, expect: 'switch', history: pattern(K_MISS, S_HIT, K_MISS) },
+  { id: 'warden-silent', tribe: 'Grandpa', knocked: false, expect: 'stay', history: pattern(K_MISS, S_HIT, K_MISS) },
 ];
 
 export function runCanaries(model, weathers = [[0, 0, 0]]) {
