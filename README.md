@@ -1,147 +1,168 @@
-# Who's Knocking
+# Pay Dirt
 
-An AI miner learns the Monty Hall problem the way it actually works: by figuring out **who opened the door**.
+A little AI learns a famous puzzle by mining for gold, live in your browser.
 
-![The live screen: a miner at a three tunnel fork, with the scoreboard, canaries and Old Timer's guess](docs/screenshot.png)
+![A miner in front of three tunnels, with the scoreboard on the right](docs/walkthrough/3-calls.png)
 
-Everyone knows the answer to Monty Hall: always switch. But that answer is only right because the host **knows** where the car is and never opens it. If the host opens a door at random, switching is a coin flip. If the host only offers a switch when you already picked the car, switching always loses. Same open door, opposite meaning.
+## The idea in one minute
 
-That is the whole problem of machine learning in one game show. Data does not tell you what it means. **The process that produced it does.**
+Three tunnels. One has gold.
 
-## The scenario
+The miner picks a tunnel. Then someone knocks on one of the other two and it caves in. Does he stay with his pick, or switch to the last tunnel?
 
-Old Cornish tin miners swore there were *knockers* in the mines: spirits that knocked on the walls. Some knocked to lead you to ore. Some knocked to warn you off a bad tunnel. Some just messed with you. And the skeptics said it was only creaky timbers.
+That's the **Monty Hall puzzle** from the old TV game show. Most people learn the answer is "always switch." But that's only true because the host *knows* where the prize is. Change who opens the door, and the right answer changes too.
 
-Those four stories are four different Monty Halls.
+Old Cornish miners believed spirits called *knockers* lived in the mines. So in Pay Dirt, three different things can knock:
 
-| Knocker | Which Monty | When it knocks | Right move |
-|---|---|---|---|
-| **Tommy** | the classic | Knows where the ore is. Always knocks an empty tunnel you didn't pick. | Switch (wins 2 in 3) |
-| **The Creaks** | Monty slipped | Old timbers settling at random, sometimes right on the ore. | Coin flip |
-| **The Joker** | evil Monty | Only when you already picked right, hoping you'll bail. | Stay on a knock, switch on silence |
-| **Grandpa** | angel Monty | Only when you picked wrong, to steer you off it. | Switch on a knock, stay on silence. Never misses. |
+| Who knocks | What they're up to | Right move |
+|---|---|---|
+| **Tommy** | Friendly. Knows where the gold is and knocks on an empty tunnel. | Switch (wins 2 out of 3 times) |
+| **The Creaks** | Not a spirit at all, just old wood settling at random. Sometimes it lands on the gold and buries it. | Doesn't matter, it's a coin flip |
+| **The Joker** | Only knocks when you already picked the gold, hoping you'll leave. | Stay when it knocks, switch when it's quiet |
 
-The mine is split into regions. Each region is one kind of rock with one knocker haunting it, and nobody is told which. At every fork the crew draws lots for a tunnel, then a knock comes (or doesn't), and every miner decides: stay or switch.
+Nobody tells you which one is haunting the part of the mine you're in. You have to figure it out from the knocks.
 
-### The miners
+## Who's playing
 
-All of them stand at **the same fork, with the same first pick and the same knock**. Only the next move differs, so the gap between them is skill, not luck.
+Three miners stand in the same spot, see the same first pick, and hear the same knock. The only difference is what they do next.
 
-- **Old Timer**: knows every spirit's habits, just not which one lives in this rock. Does the math perfectly (exact Bayes). The best anyone can do.
-- **Rookie**: the AI. A tiny neural network (710 numbers) that starts knowing nothing. Nobody tells it the rules or the spirits' names. It sees what happened at recent forks, the rock, and the weather, and learns from where the ore turns out to be.
-- **Bookworm**: always switches when it hears a knock. The answer it read in a book. Basically an AI that memorized the famous puzzle instead of thinking about it.
-- **You**: tick *Play along* and make the call yourself.
+- **Old Timer** knows every spirit's trick. He's the best anyone can do.
+- **Rookie** is the AI. It's a tiny neural network (162 numbers) that starts out knowing nothing. Nobody tells it the rules or the spirits' names. It watches what happens and learns.
+- **Bookworm** always switches when there's a knock, because that's the textbook answer. It's what an AI does when it memorized the famous puzzle instead of thinking about it.
 
-In the code these are `Oracle`, `Apprentice` and `Parrot`.
+## Walkthrough
 
-## How we know it's actually learning
+**1. The crew picks a tunnel.** The top left shows which part of the mine you're in and which real town's weather shuffled it.
 
-We built the world, so we always know the right answer at every fork. Every fork is a free test question, live, forever.
+![The crew picks tunnel I](docs/walkthrough/1-pick.png)
 
-| Check | What it catches |
+**2. Someone knocks, and a tunnel caves in.** On the right, Old Timer's guess for who is knocking. Here he's sure it's the Joker.
+
+![A knock, and tunnel II caves in](docs/walkthrough/2-knock.png)
+
+**3. Everyone decides.** The colored lights show which tunnel each miner chose. The Rookie and Old Timer stay. The Bookworm switches, which is exactly what the Joker wanted.
+
+![Old Timer and the Rookie stay, the Bookworm switches](docs/walkthrough/3-calls.png)
+
+**4. The gold is revealed** and the scoreboard updates.
+
+![The gold is revealed in the tunnel](docs/walkthrough/4-reveal.png)
+
+**5. Is it learning?** The side panel shows the scoreboard, a chart of gold missed over time, three test questions, and every pick saved to your device.
+
+![The side panel: scoreboard, learning chart, test questions, saved picks](docs/walkthrough/6-panel.png)
+
+**6. Where the randomness comes from.** Under the cave you can see the real weather request and the numbers it returned.
+
+![The weather request and the random numbers made from it](docs/walkthrough/7-weather.png)
+
+It works on a phone too.
+
+![The phone layout](docs/walkthrough/5-phone.png)
+
+## How we know it's really learning
+
+Because we built the mine, we always know the right answer at every fork. So every fork is a free test, forever.
+
+- **Gold missed.** For every pick, we compare the miner's choice to someone who knew exactly which spirit was knocking. A line that goes flat means that miner stopped making mistakes. We count the odds, not the luck, so a lucky guess doesn't hide a bad choice.
+- **Test questions.** Every ten picks the Rookie answers three questions it never practices on, one per spirit. Getting them right means it learned the rule.
+- **Automatic checks.** The tests double check the AI's math and fail if the Rookie stops learning.
+
+What it shows so far (5,000 picks, measured over the last 1,000):
+
+| Miner | Gold missed per 100 picks |
 |---|---|
-| **Ore left on the table** | Ore lost versus someone who knew exactly which spirit was knocking. Uses the exact odds, so luck doesn't muddy it. Flat line means learned. |
-| **Canaries** | Six pop quizzes every ten forks that the Rookie never studies for. Each is a pattern only one spirit could make. Named after the birds miners carried underground. |
-| **Gut check** | When it feels 70% sure, does it hit 70% of the time? |
-| **Distracted by weather** | Replay the same fork under every other mine's weather. Weather never matters, so this should drop to zero. |
-| **Bounce back** | Every so often the knockers move to different rocks, so the rock it learned to trust now points the wrong way. How many forks until it gets its game back? |
-| **CI gates** | `npm test` double checks the network's math and fails if the Rookie stops learning. `pytest` checks the Python port bit for bit. `python -m whos_knocking.evaluate --max-regret` gates any agent. |
+| Old Timer | 0.1 |
+| Rookie | 0.7 |
+| Bookworm | 15.5 |
 
-### What it has shown so far
-
-Measured headless, 8,000 forks, knockers moving every 2,500:
-
-| Forks | Rookie, ore missed per 100 | Bookworm | Old Timer |
-|---|---|---|---|
-| 500 | 7.48 | 13.93 | 0.20 |
-| 1,000 | 0.53 | 10.90 | 0.00 |
-| 2,000 | 0.07 | 11.80 | 0.00 |
-| 4,000 (after a move) | 1.50 | 9.80 | 0.07 |
-| 8,000 | 0.97 | 14.20 | 0.10 |
-
-It bounced back from each move in 196 to 300 forks.
-
-Two lessons came out of building the tests, and both are real ML lessons:
-
-1. **Check your quiz before you grade the student.** The first pop quizzes left out the rock and the weather, which never happens in a real fork. Two of six canaries kept "dying" for reasons that had nothing to do with whether the Rookie understood the spirits. Asking each quiz under every rock and every real mine's weather fixed it. Every canary now survives 93% to 100% of the time.
-2. **The Rookie does get distracted by the weather.** Changing only the weather moved its answer. Rain over a mine in Bolivia has nothing to do with spirits in the rock, but the network found a pattern there anyway. That's why it's on the live screen.
+The Rookie gets close to Old Timer within a couple thousand picks. The Bookworm never improves, because the Joker fools it every single time.
 
 ## Where the randomness comes from
 
-Cloudflare keeps a wall of lava lamps in its lobby and hashes photos of it into random numbers. Same idea here, with free public sources:
+Cloudflare famously keeps a wall of lava lamps and turns photos of them into random numbers. Pay Dirt does the same thing with the weather.
 
-- **drand**, the public randomness beacon run by the League of Entropy (Cloudflare runs a node). A new verifiable random value every 3 seconds.
-- **The live weather above eight historic mines** (Botallack, Kiruna, Cerro Rico, Kalgoorlie, Butte, Wieliczka, Chuquicamata, Falun) from Open-Meteo.
+One free request to [Open-Meteo](https://open-meteo.com) (no account, no key) gets the current weather in eight real mining towns: St Just (England), Kiruna (Sweden), Potosí (Bolivia), Kalgoorlie (Australia), Butte (USA), Wieliczka (Poland), Calama (Chile) and Falun (Sweden). Each part of the mine takes the next town's reading and scrambles it with SHA-256 into a random number. That number decides who's knocking and where the gold goes. The weather is checked again every 15 minutes.
 
-Each region is rolled from a SHA-256 hash of the beacon plus the weather. The hash matters: raw weather isn't evenly random, and the Monty Hall odds only hold if the dice are fair. The weather also shapes how the cave looks (drips from rain, fog from humidity, dust blowing with the wind, warmer rock when it's hot out) and gets fed to the Rookie as a deliberate red herring. Every seed is logged with its round, so anyone can refetch it and replay the cave exactly.
+The weather also changes how the cave looks: more drips when it's raining, more fog when it's humid, dust blowing when it's windy.
 
 ## Run it
 
-No build step, no dependencies, no keys.
+You don't need to install anything:
 
 ```sh
 cd web && python3 -m http.server 8000
-# open http://localhost:8000
-# http://localhost:8000/#turbo   trains as fast as your CPU allows
-# http://localhost:8000/#play    you play along
+# then open http://localhost:8000
+# http://localhost:8000/#turbo starts in fast forward
 ```
 
-Tests:
+Replay an exact run (handy for bug reports and screenshots): `http://localhost:8000/?seed=7&skip=1209&freeze=calls`
+
+## Every pick, saved
+
+Every pick is saved in your browser, so it survives a reload. The **Download** button gives you all of it as a JSONL file: which spirit, the knock, each miner's choice and how sure it was, and whether it found gold.
+
+To make a big log without the animation:
 
 ```sh
-npm test                                   # js: the odds, the network's math, is it still learning
-cd python && pip install -e ".[test]" && pytest
+node tools/dig.mjs --forks 20000 --every 1000 --out runs/today.jsonl
 ```
 
-## Bring your own agent
+It prints a progress line every 1,000 picks so you can watch it learn.
 
-The world is ported to Python as a [Gymnasium](https://gymnasium.farama.org) environment. One step is one fork: action 0 stays, 1 switches, reward 1 for ore. The observation matches the browser model's input exactly.
+## Bring your own AI
+
+For people who want to train their own agent, the same mine is in Python as a [Gymnasium](https://gymnasium.farama.org) environment. Action 0 stays, 1 switches, and you get a reward of 1 for gold.
 
 ```python
-from whos_knocking.env import KnockersEnv
+from pay_dirt.env import KnockersEnv
 
 env = KnockersEnv(episode_forks=2000)
 obs, info = env.reset(seed=0)
 obs, reward, terminated, truncated, info = env.step(1)
-info["regret"]   # ore lost versus perfect knowledge
+info["regret"]   # gold missed compared to knowing the spirit
 ```
 
-Score it the same way the live screen does:
+Score it the same way the page does:
 
 ```sh
-python -m whos_knocking.evaluate --policy parrot --forks 3000 --seeds 5
-python -m whos_knocking.evaluate --policy my_pkg.agents:MyAgent --max-regret 2
+cd python && pip install -e ".[test]"
+python -m pay_dirt.evaluate --policy bookworm --forks 3000 --seeds 5
+python -m pay_dirt.evaluate --policy my_pkg.agents:MyAgent --max-regret 2
 ```
 
-A policy is any class with `act(obs)` and `observe(obs, action, reward, info, next_obs)`.
+The Python version makes exactly the same mine as the browser for the same seed, and a test checks that.
 
-## Cost
+## Tests
 
-Zero. The network trains on the viewer's own computer in plain JavaScript (hand written backprop, Adam, a replay buffer). No server, no GPU, no API keys, no LLM calls. drand and Open-Meteo are free. The site can be hosted on GitHub Pages for free.
-
-## Layout
-
-```
-web/sim.js          the world, the four knockers, the exact oracle
-web/apprentice.js   the neural network, its canaries
-web/expedition.js   runs all miners at the same forks, keeps the scorecard
-web/entropy.js      drand + weather + sha-256
-web/cave.js         three.js marching cubes cave
-web/main.js         the live screen
-python/             gymnasium env, bit for bit port, evaluator
-tests/              node tests and the golden trace python must match
+```sh
+npm test                      # the puzzle math, the AI's math, and is it still learning
+cd python && pytest
 ```
 
-## Ideas
+## What it costs
 
-- More knockers: a fibber who's right only 70% of the time, or a copycat who mimics whoever came before.
-- Give the Rookie a longer memory so it can notice a move by itself.
-- Let a live stream's chat vote as another miner.
-- Race the Rookie against a bigger network that reads the forks in order.
+Nothing. The AI trains on your own computer in plain JavaScript. There's no server, no GPU, no API key and no paid service.
 
-## Credits
+## What's inside
 
-[three.js](https://threejs.org) and its MarchingCubes addon, [simplex-noise](https://github.com/jwagner/simplex-noise.js), [drand](https://drand.love) and the League of Entropy, [Open-Meteo](https://open-meteo.com). Monty Fall is from Jeffrey Rosenthal's *Monty Hall, Monty Fall, Monty Crawl*. The knockers are from Cornish mining folklore.
+```
+web/sim.js          the mine, the three spirits, and Old Timer's math
+web/apprentice.js   the Rookie (the neural network) and its test questions
+web/expedition.js   runs all three miners at the same forks and keeps score
+web/entropy.js      the weather request and the random numbers
+web/cave.js         the 3D cave (three.js)
+web/log.js          saving every pick
+web/main.js         the page
+web/vendor/         NES.css, the retro look (MIT)
+python/             the same mine for Python, plus the scorer
+tests/              tests, and the trace Python has to match
+tools/dig.mjs       a big run with no animation
+```
+
+## Thanks
+
+[three.js](https://threejs.org), [NES.css](https://nostalgic-css.github.io/NES.css/), [simplex-noise](https://github.com/jwagner/simplex-noise.js) and [Open-Meteo](https://open-meteo.com). "Monty Fall" comes from Jeffrey Rosenthal's *Monty Hall, Monty Fall, Monty Crawl*. The knockers come from Cornish mining folklore.
 
 ## License
 

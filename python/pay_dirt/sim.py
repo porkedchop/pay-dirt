@@ -1,20 +1,11 @@
 # port of web/sim.js. same draws same floats, tests/golden.json checks it
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-GUIDE, SETTLING, TRICKSTER, WARDEN = 0, 1, 2, 3
-TRIBE_NAMES = ["Tommy", "The Creaks", "The Joker", "Grandpa"]
-STRATA_NAMES = ["Granite", "Killas", "Elvan", "Greenstone"]
-
-DEFAULTS = dict(
-    tribe_prior=(0.3, 0.3, 0.2, 0.2),
-    cue_reliability=0.8,
-    region_min=12,
-    region_span=24,
-    migrate_every=600,
-)
-
+TOMMY, CREAKS, JOKER = 0, 1, 2
+SPIRIT_NAMES = ["Tommy", "The Creaks", "The Joker"]
+DEFAULTS = dict(prior=(0.4, 0.3, 0.3), region_min=12, region_span=20)
 M32 = 0xFFFFFFFF
 
 
@@ -47,19 +38,15 @@ def others_of(pick: int) -> list[int]:
     return [t for t in (0, 1, 2) if t != pick]
 
 
-def knock(tribe: int, seam: int, pick: int, u: float):
+def knock(spirit: int, ore: int, pick: int, u: float):
     o = others_of(pick)
     coin = o[0 if u < 0.5 else 1]
-    empty_other = o[1] if o[0] == seam else o[0]
-    if tribe == GUIDE:
-        return (coin if seam == pick else empty_other), False
-    if tribe == SETTLING:
-        return coin, coin == seam
-    if tribe == TRICKSTER:
-        return (coin, False) if seam == pick else (None, False)
-    if tribe == WARDEN:
-        return (None, False) if seam == pick else (empty_other, False)
-    raise ValueError(tribe)
+    empty_other = o[1] if o[0] == ore else o[0]
+    if spirit == TOMMY:
+        return (coin if ore == pick else empty_other), False
+    if spirit == CREAKS:
+        return coin, coin == ore
+    return (coin, False) if ore == pick else (None, False)
 
 
 def switch_target(pick: int, k, switch_u: float) -> int:
@@ -69,37 +56,29 @@ def switch_target(pick: int, k, switch_u: float) -> int:
     return o[1] if o[0] == k else o[0]
 
 
-def likelihood(tribe: int, seam: int, pick: int, k, ring: bool) -> float:
-    seam_picked = seam == pick
+def likelihood(spirit: int, ore: int, pick: int, k, ring: bool) -> float:
     if k is not None and k == pick:
         return 0.0
-    if tribe == GUIDE:
+    ore_picked = ore == pick
+    if spirit == TOMMY:
         if ring or k is None:
             return 0.0
-        return 0.5 if seam_picked else (1.0 if k != seam else 0.0)
-    if tribe == SETTLING:
+        return 0.5 if ore_picked else (1.0 if k != ore else 0.0)
+    if spirit == CREAKS:
         if k is None:
             return 0.0
-        return 0.5 if ring == (k == seam) else 0.0
-    if tribe == TRICKSTER:
-        if ring:
-            return 0.0
-        if seam_picked:
-            return 0.5 if k is not None else 0.0
-        return 1.0 if k is None else 0.0
-    if tribe == WARDEN:
-        if ring:
-            return 0.0
-        if seam_picked:
-            return 1.0 if k is None else 0.0
-        return 1.0 if (k is not None and k != seam) else 0.0
-    return 0.0
+        return 0.5 if ring == (k == ore) else 0.0
+    if ring:
+        return 0.0
+    if ore_picked:
+        return 0.5 if k is not None else 0.0
+    return 1.0 if k is None else 0.0
 
 
 def decide(belief, pick: int, k, ring: bool):
     stay = sw = z = 0.0
-    post = [0.0, 0.0, 0.0, 0.0]
-    for t in range(4):
+    post = [0.0] * len(belief)
+    for t in range(len(belief)):
         if belief[t] == 0:
             continue
         for s in range(3):
@@ -121,25 +100,16 @@ def decide(belief, pick: int, k, ring: bool):
     return stay / z, sw / z, [p / z for p in post]
 
 
-def reveal_update(belief, seam, pick, k, ring):
-    post = [b * likelihood(t, seam, pick, k, ring) for t, b in enumerate(belief)]
-    z = sum(post)
+def reveal_update(belief, ore, pick, k, ring):
+    post = [b * likelihood(t, ore, pick, k, ring) for t, b in enumerate(belief)]
+    z = 0.0
+    for p in post:
+        z += p
     return list(belief) if z == 0 else [p / z for p in post]
 
 
 def one_hot(t: int):
-    v = [0.0, 0.0, 0.0, 0.0]
-    v[t] = 1.0
-    return v
-
-
-def strata_prior(strata: int, cue_map, cfg=DEFAULTS):
-    r = cfg["cue_reliability"]
-    p = [pt * ((r if cue_map[t] == strata else 0) + (1 - r) / 4) for t, pt in enumerate(cfg["tribe_prior"])]
-    z = 0.0
-    for x in p:
-        z += x
-    return [x / z for x in p]
+    return [1.0 if i == t else 0.0 for i in range(len(SPIRIT_NAMES))]
 
 
 def _sample_index(probs, u):
@@ -157,20 +127,17 @@ class Region:
     seed: int
     source: str
     rng: object
-    tribe: int
+    spirit: int
     length: int
-    strata: int
     forks_done: int = 0
-    start_fork: int = 0
 
 
 @dataclass
 class Fork:
     index: int
     region: int
-    tribe: int
-    strata: int
-    seam: int
+    spirit: int
+    ore: int
     pick: int
     k: int | None
     ring: bool
@@ -184,23 +151,16 @@ class Fork:
 class World:
     def __init__(self, **cfg):
         self.cfg = {**DEFAULTS, **cfg}
-        self.cue_map = [0, 1, 2, 3]
         self.fork_count = 0
         self.region_index = -1
         self.region: Region | None = None
-        self.migrations: list[int] = []
-
-    def migrate(self):
-        self.cue_map = [(s + 1) % 4 for s in self.cue_map]
-        self.migrations.append(self.fork_count)
 
     def begin_region(self, seed: int, source: str = "chained") -> Region:
         rng = mulberry32(seed)
-        tribe = _sample_index(self.cfg["tribe_prior"], rng())
+        spirit = _sample_index(self.cfg["prior"], rng())
         length = self.cfg["region_min"] + int(rng() * self.cfg["region_span"])
-        strata = self.cue_map[tribe] if rng() < self.cfg["cue_reliability"] else int(rng() * 4)
         self.region_index += 1
-        self.region = Region(self.region_index, seed & M32, source, rng, tribe, length, strata, 0, self.fork_count)
+        self.region = Region(self.region_index, seed & M32, source, rng, spirit, length)
         return self.region
 
     def needs_region(self) -> bool:
@@ -211,45 +171,43 @@ class World:
         return fnv1a(f"{prev}:{self.region_index + 1}")
 
     def next_fork(self) -> Fork:
-        me = self.cfg["migrate_every"]
-        if me > 0 and self.fork_count > 0 and self.fork_count % me == 0 and (not self.migrations or self.migrations[-1] != self.fork_count):
-            self.migrate()
         if self.needs_region():
-            raise RuntimeError("region exhausted: call begin_region first")
+            raise RuntimeError("region over: call begin_region first")
         R = self.region
-        seam = int(R.rng() * 3)
+        ore = int(R.rng() * 3)
         pick = int(R.rng() * 3)
         u = R.rng()
         switch_u = R.rng()
-        k, ring = knock(R.tribe, seam, pick, u)
+        k, ring = knock(R.spirit, ore, pick, u)
         target = switch_target(pick, k, switch_u)
-        ts, tw, _ = decide(one_hot(R.tribe), pick, k, ring)
-        f = Fork(self.fork_count, R.index, R.tribe, R.strata, seam, pick, k, ring, target,
-                 (not ring) and seam == pick, (not ring) and target == seam, ts, tw)
+        ts, tw, _ = decide(one_hot(R.spirit), pick, k, ring)
+        f = Fork(self.fork_count, R.index, R.spirit, ore, pick, k, ring, target,
+                 (not ring) and ore == pick, (not ring) and target == ore, ts, tw)
         R.forks_done += 1
         self.fork_count += 1
         return f
 
 
 class Oracle:
+    """old timer. knows the three habits, never which spirit is here"""
+
     def __init__(self, world: World):
         self.world = world
         self.belief = None
 
     def begin_region(self, R: Region):
-        self.belief = strata_prior(R.strata, self.world.cue_map, self.world.cfg)
+        self.belief = list(self.world.cfg["prior"])
 
     def act(self, f: Fork):
-        ps, pw, post = decide(self.belief, f.pick, f.k, f.ring)
+        ps, pw, _ = decide(self.belief, f.pick, f.k, f.ring)
         return ("switch" if pw > ps else "stay"), ps, pw
 
     def learn(self, f: Fork):
-        self.belief = reveal_update(self.belief, f.seam, f.pick, f.k, f.ring)
+        self.belief = reveal_update(self.belief, f.ore, f.pick, f.k, f.ring)
 
 
 def regret_of(f: Fork, action: str) -> float:
-    best = max(f.true_stay, f.true_switch)
-    return best - (f.true_switch if action == "switch" else f.true_stay)
+    return max(f.true_stay, f.true_switch) - (f.true_switch if action == "switch" else f.true_stay)
 
 
 def won(f: Fork, action: str) -> bool:

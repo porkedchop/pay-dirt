@@ -1,5 +1,5 @@
 [project]
-name = "whos-knocking"
+name = "pay-dirt"
 version = "0.1.0"
 description = "Monty Hall with the part the textbook leaves out: who opened the door. A Gymnasium env and continuous eval."
 requires-python = ">=3.10"
@@ -14,7 +14,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["whos_knocking*"]
+include = ["pay_dirt*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

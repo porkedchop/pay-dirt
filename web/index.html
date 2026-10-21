@@ -3,254 +3,256 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Who's Knocking</title>
+<title>Pay Dirt</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="An AI miner learns the Monty Hall problem the way it really works: by figuring out who opened the door.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
+<link rel="stylesheet" href="vendor/nes.min.css">
 <style>
-/* layout: the cave fills the stage, the field notebook runs down the right. stacks on phones */
+/* ui kit is nes.css (mit, vendor/). this is layout plus the bits nes.css doesnt cover */
 :root {
   color-scheme: dark;
-  --bg: #0e0c0a;
-  --panel: #16130f;
-  --raise: #201b16;
-  --line: #3a3128;
-  --ink: #ece4d6;
-  --muted: #a69a88;
-  --lamp: #e8c27c;
-  --canary: #f2c94c;
-  --beak: #e08a3a;
-  --dead: #5b534a;
-  --good: #4cbb7f;
-  --bad: #e0705a;
-  --oracle: #199e70;
-  --apprentice: #3987e5;
-  --parrot: #d95926;
-  --you: #d55181;
-  --display: "IM Fell English SC", "Iowan Old Style", Georgia, serif;
-  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --bg: #121417;
+  --box: #212529;
+  --ink: #ffffff;
+  --muted: #adafbc;
+  --gold: #f7d51d;
+  --good: #92cc41;
+  --bad: #e76e55;
+  --canary: #f7d51d;
+  --beak: #e59400;
+  --dead: #5f6368;
+  --pixel: "Press Start 2P", ui-monospace, monospace;
+  --read: "VT323", ui-monospace, "SF Mono", Menlo, monospace;
 }
 html, body { height: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--body); }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--pixel); font-size: 10px; line-height: 1.6; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-.app { display: grid; grid-template-columns: minmax(0, 1fr) 392px; height: 100%; }
-.stage { position: relative; min-width: 0; overflow: hidden; background: #0b0908; }
-#cave { width: 100%; height: 100%; display: block; }
-.fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .4s ease; }
+p, li, .hint { font-family: var(--read); font-size: 19px; line-height: 1.15; }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 400px; height: 100%; }
+.left { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+.stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: #070605; }
+#cave { width: 100%; height: 100%; max-width: 100%; display: block; image-rendering: pixelated; }
+.fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .4s steps(4); }
 .fade.on { opacity: 1; }
 
-.hud-top { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;
-  padding: max(14px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px)); pointer-events: none; }
-.hud-top > * { pointer-events: auto; }
-.region { background: color-mix(in srgb, var(--bg) 78%, transparent); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; max-width: 420px; backdrop-filter: blur(6px); }
-.region h2 { font: 400 22px/1.1 var(--display); margin: 0; letter-spacing: .01em; text-wrap: balance; }
-.region .where { color: var(--lamp); font-size: 13px; margin-top: 2px; }
-.region .meta { color: var(--muted); font: 12px/1.4 var(--mono); margin-top: 6px; font-variant-numeric: tabular-nums; }
-.tag { display: inline-block; font: 500 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 3px 5px; margin-left: 6px; vertical-align: 2px; }
-.controls { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-button, .seg button { font: 500 12px/1 var(--body); color: var(--ink); background: color-mix(in srgb, var(--raise) 88%, transparent); border: 1px solid var(--line); border-radius: 5px; padding: 8px 11px; cursor: pointer; }
-button:hover { border-color: var(--lamp); }
-button:focus-visible, input:focus-visible, .canary:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
-button[aria-pressed="true"] { background: var(--lamp); color: #1a140c; border-color: var(--lamp); }
-.seg { display: inline-flex; }
-.seg button { border-radius: 0; margin-left: -1px; }
-.seg button:first-child { border-radius: 5px 0 0 5px; margin-left: 0; }
-.seg button:last-child { border-radius: 0 5px 5px 0; }
+.hud { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(18px, env(safe-area-inset-right, 0px)) 0 max(18px, env(safe-area-inset-left, 0px)); pointer-events: none; }
+.hud > * { pointer-events: auto; }
+.region.nes-container { margin: 0; padding: 14px 16px 10px; }
+.region h2 { font: 400 12px/1.5 var(--pixel); margin: 0; }
+.region .meta { color: var(--muted); font: 18px/1.1 var(--read); margin-top: 6px; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.controls .nes-btn { font-size: 9px; padding: 4px 8px; }
 
-.bottom { position: absolute; left: 0; right: 0; bottom: 0; display: grid; gap: 10px; justify-items: center;
-  padding: 0 max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); pointer-events: none; }
-.bottom > * { pointer-events: auto; }
-.narration { font: 400 clamp(17px, 2.1vw, 24px)/1.3 var(--display); text-align: center; text-shadow: 0 2px 12px #000, 0 0 2px #000; max-width: 720px; text-wrap: balance; min-height: 1.3em; }
-.calls { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 28px; }
-.chip { display: inline-flex; align-items: center; gap: 6px; font: 12px/1 var(--body); background: color-mix(in srgb, var(--bg) 80%, transparent); border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; }
-.chip i, td i, .tip i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
-.chip b { font-weight: 600; }
-.chip .p { color: var(--muted); font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.playalong { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; background: color-mix(in srgb, var(--bg) 85%, transparent); border: 1px solid var(--you); border-radius: 8px; padding: 10px 12px; }
-.playalong span { color: var(--ink); }
-.playalong button { font-size: 14px; padding: 9px 16px; }
+.bottom { position: absolute; left: 0; right: 0; bottom: 0; display: grid; gap: 14px; justify-items: center;
+  padding: 0 max(18px, env(safe-area-inset-right, 0px)) 18px max(18px, env(safe-area-inset-left, 0px)); pointer-events: none; }
+.nes-balloon.narration { font: 11px/1.7 var(--pixel); max-width: 680px; text-align: center; margin: 0; padding: 12px 18px; }
+.calls { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; min-height: 30px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; font: 9px/1 var(--pixel); background: var(--box); padding: 8px 10px;
+  box-shadow: 0 -3px 0 #fff, 0 3px 0 #fff, -3px 0 0 #fff, 3px 0 0 #fff; }
+.chip i, td i, .tip i, .legend i { width: 10px; height: 10px; display: inline-block; flex: none; }
+.chip .p { color: var(--muted); }
 
-.panel { overflow-y: auto; border-left: 1px solid var(--line); background: var(--panel);
+.feed { border-top: 4px solid var(--box); padding: 22px max(18px, env(safe-area-inset-right, 0px)) 14px max(18px, env(safe-area-inset-left, 0px)); }
+.feed .nes-container { margin: 0; padding: 18px 14px 12px; }
+.feedgrid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; }
+.feedtext { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.feed .nes-container > .title { font: 400 10px/1.4 var(--pixel); }
+.callline { font: 17px/1.15 var(--read); color: var(--muted); margin: 0; word-break: break-all; }
+.callline .verb { color: var(--good); } .callline .bad { color: var(--bad); } .callline .url { color: var(--ink); }
+.callbody { margin: 0; font: 16px/1.1 var(--read); color: var(--gold); background: #15181b; padding: 8px 10px; white-space: pre-wrap; min-width: 0; }
+.callnote { font-size: 16px; color: var(--muted); margin: 0; }
+.rolls { list-style: none; margin: 0; padding: 0; font-size: 15px; color: var(--muted); }
+.rolls b { color: var(--gold); font-weight: 400; }
+
+.panel { overflow-y: auto; border-left: 4px solid var(--box);
   padding-block: max(18px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-bottom, 0px));
-  padding-left: 20px; padding-right: max(20px, env(safe-area-inset-right, 0px)); display: grid; gap: 22px; align-content: start; }
-.masthead h1 { font: 400 38px/1 var(--display); margin: 0; letter-spacing: .01em; }
-.masthead .knock { color: var(--lamp); }
-.masthead p { color: var(--muted); margin: 10px 0 0; font-size: 13.5px; }
-.masthead p strong { color: var(--ink); font-weight: 500; }
-section h3 { font: 600 11px/1 var(--body); text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 0 0 10px; display: flex; justify-content: space-between; gap: 8px; }
-section h3 span { font: 400 11px/1 var(--mono); letter-spacing: 0; text-transform: none; }
-.brow { display: grid; grid-template-columns: 104px 1fr 40px; gap: 8px; align-items: center; padding: 3px 0; color: var(--muted); }
+  padding-left: 18px; padding-right: max(18px, env(safe-area-inset-right, 0px)); display: grid; gap: 26px; align-content: start; }
+.panel .nes-container { margin: 0; padding: 22px 16px 16px; }
+.panel .title { font: 400 10px/1.4 var(--pixel) !important; color: var(--ink); background: var(--box); }
+.panel details > summary > .title { display: table; padding: 0 .5rem; margin: -2.2rem 0 1rem; }
+.masthead h1 { font: 400 24px/1.2 var(--pixel); margin: 0; display: flex; align-items: center; gap: 14px; color: var(--gold); }
+.masthead p { margin: 10px 0 0; }
+.masthead .who { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.masthead .who li { font-size: 18px; color: var(--muted); }
+.masthead b { color: var(--gold); font-weight: 400; }
+.masthead em { color: var(--ink); font-style: normal; }
+.masthead .rookie { color: #6aa7f0; }
+.here { margin: 0; font-size: 19px; } .here b { color: var(--gold); font-weight: 400; }
+.miners { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 4px; }
+.miners li { font-size: 17px; color: var(--muted); }
+.miners i { width: 10px; height: 10px; display: inline-block; margin-right: 8px; }
+.miners b { color: var(--ink); font-weight: 400; }
+.quiz { list-style: none; margin: 0; padding: 0; }
+.quiz li { display: grid; grid-template-columns: 1.3fr 1fr 1.1fr 20px; gap: 8px; padding: 6px 0; border-top: 2px dashed #3a3f45; font-size: 18px; }
+.quiz li.head { border-top: 0; color: var(--muted); font-size: 16px; padding-top: 0; }
+.quiz li.pass b { color: var(--good); } .quiz li.fail b { color: var(--bad); } .quiz li.fail span:nth-child(3) { color: var(--bad); }
+.brow { display: grid; grid-template-columns: 100px 1fr 44px; gap: 10px; align-items: center; color: var(--muted); font-size: 9px; }
 .brow.top { color: var(--ink); }
-.btrack { height: 8px; background: var(--raise); border-radius: 4px; overflow: hidden; }
-.bfill { display: block; height: 100%; background: var(--lamp); border-radius: 4px; transition: width .5s ease; opacity: .55; }
-.brow.top .bfill { opacity: 1; }
-.bval { text-align: right; font: 12px var(--mono); font-variant-numeric: tabular-nums; }
-.hint { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
-.past { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
-.past li { font: 11px/1 var(--mono); border: 1px solid var(--line); border-radius: 3px; padding: 4px 6px; display: inline-flex; gap: 5px; }
-.past li.empty { border: 0; padding: 0; color: var(--muted); font-family: var(--body); font-size: 12px; }
-.past .ok { color: var(--good); } .past .miss { color: var(--bad); }
-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-th { font: 500 11px/1.2 var(--body); color: var(--muted); text-align: right; padding: 0 0 6px; }
-th:first-child, td:first-child { text-align: left; }
-td { padding: 5px 0; border-top: 1px solid var(--line); text-align: right; font-family: var(--mono); font-size: 12.5px; }
-td:first-child { font-family: var(--body); font-size: 13px; display: flex; gap: 7px; align-items: center; }
+.brow .nes-progress { height: 20px; margin: 4px 0; }
+.brow .nes-progress::-webkit-progress-bar { background: #2d3238; }
+.brow .nes-progress::-webkit-progress-value { background: var(--muted); }
+.brow .nes-progress::-moz-progress-bar { background: var(--muted); }
+.brow .nes-progress.is-warning::-webkit-progress-value { background: var(--gold); }
+.brow .nes-progress.is-warning::-moz-progress-bar { background: var(--gold); }
+.bval { text-align: right; }
+.hint { color: var(--muted); margin: 10px 0 0; }
+.forks { color: var(--muted); }
+#scores { width: 100%; font-size: 8px; }
+#scores th, #scores td { padding: 7px 5px; text-align: right; white-space: nowrap; }
+#scores th:first-child, #scores td:first-child { text-align: left; }
+#scores td:first-child { display: flex; gap: 8px; align-items: center; }
 .chartwrap { position: relative; }
-.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); margin-bottom: 8px; font: 17px/1.1 var(--read); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
-.legend i { width: 12px; height: 2px; border-radius: 1px; display: inline-block; }
 #chart { width: 100%; height: auto; display: block; touch-action: none; }
-#chart .grid { stroke: var(--line); stroke-width: 1; opacity: .6; }
-#chart .axis { stroke: var(--muted); stroke-width: 1; }
-#chart .tick { fill: var(--muted); font: 9.5px var(--mono); }
-#chart .dlabel { fill: var(--ink); font: 10px var(--body); }
-#chart .mig { stroke: var(--lamp); stroke-dasharray: 3 3; stroke-width: 1; }
-#chart .migl { fill: var(--lamp); font: 9px var(--mono); }
-#chart .cross { stroke: var(--muted); stroke-width: 1; }
-#chart .hit { fill: transparent; cursor: crosshair; }
-.tip { position: absolute; top: 24px; background: var(--raise); border: 1px solid var(--line); border-radius: 5px; padding: 7px 9px; font-size: 12px; pointer-events: none; min-width: 130px; box-shadow: 0 6px 20px #0008; }
-.tip .tt { color: var(--muted); font: 11px var(--mono); margin-bottom: 4px; }
-.tip div { display: flex; align-items: center; gap: 6px; }
-.tip b { margin-left: auto; font: 500 12px var(--mono); padding-left: 10px; }
-.canaries { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
-.canary { text-align: center; font-size: 10.5px; line-height: 1.25; color: var(--ink); border-radius: 4px; padding: 4px 0; }
+#chart .grid { stroke: #3a3f45; } #chart .axis { stroke: var(--muted); stroke-width: 2; }
+#chart .tick { fill: var(--muted); font: 12px var(--read); } #chart .dlabel { fill: var(--ink); font: 12px var(--read); }
+#chart .cross { stroke: var(--ink); } #chart .hit { fill: transparent; cursor: crosshair; }
+.tip { position: absolute; top: 24px; background: var(--box); padding: 8px 10px; font: 16px/1.15 var(--read); pointer-events: none; min-width: 140px; box-shadow: 0 -3px 0 #fff, 0 3px 0 #fff, -3px 0 0 #fff, 3px 0 0 #fff; }
+.tip .tt { color: var(--muted); margin-bottom: 4px; } .tip div { display: flex; align-items: center; gap: 6px; } .tip b { margin-left: auto; font-weight: 400; padding-left: 10px; }
+.quizzes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.canary { text-align: center; font: 16px/1.05 var(--read); padding: 4px 0; }
 .canary.dead { color: var(--muted); }
-.canary svg { width: 32px; height: 28px; display: block; margin: 0 auto 3px; }
-.metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; margin: 0; }
-.metric dt { font-size: 12px; color: var(--muted); }
-.metric dd { margin: 2px 0 0; font: 500 18px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
-.metric p { margin: 3px 0 0; font-size: 11.5px; color: var(--muted); line-height: 1.4; }
-.tribes { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
-.tribes b { font: 400 17px var(--display); font-weight: 400; }
-.tribes .variant { font: 11px var(--mono); color: var(--muted); margin-left: 4px; }
-.tribes p { margin: 3px 0 0; color: var(--muted); font-size: 12.5px; }
-.tribes .lesson { color: var(--ink); }
+.canary svg { width: 40px; height: 34px; display: block; margin: 0 auto 4px; }
+.loglist { list-style: none; padding: 0; margin: 10px 0 0; }
+.loglist li { display: grid; grid-template-columns: 58px 1fr auto; gap: 8px; padding: 5px 0; border-top: 2px dashed #3a3f45; font-size: 16px; }
+.loglist .hit { color: var(--good); } .loglist .miss { color: var(--bad); }
+.logbtns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.logbtns .nes-btn { font-size: 9px; padding: 4px 8px; }
+.spirits { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+.spirits b { font: 400 10px/1.5 var(--pixel); color: var(--gold); }
+.spirits .variant { font-size: 16px; color: var(--muted); margin-left: 6px; }
+.spirits p { margin: 4px 0 0; color: var(--muted); font-size: 18px; } .spirits .lesson { color: var(--ink); }
 details summary { cursor: pointer; list-style: none; }
 details summary::-webkit-details-marker { display: none; }
-details summary h3::after { content: "show"; font: 400 11px var(--mono); letter-spacing: 0; text-transform: none; color: var(--lamp); }
-details[open] summary h3::after { content: "hide"; }
-.ledger { list-style: none; padding: 0; margin: 0; font: 11.5px/1.4 var(--mono); }
-.ledger li { display: grid; grid-template-columns: 64px 1fr auto; gap: 2px 8px; padding: 5px 0; border-top: 1px solid var(--line); color: var(--muted); }
-.ledger li span:nth-child(2) { color: var(--ink); }
-.ledger code { grid-column: 2 / 4; color: var(--lamp); font-size: 11px; }
-.foot { color: var(--muted); font-size: 12px; }
-.foot a { color: var(--lamp); }
-label.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; background: color-mix(in srgb, var(--raise) 88%, transparent); border: 1px solid var(--line); border-radius: 5px; padding: 6px 10px; cursor: pointer; }
-label.toggle input { accent-color: var(--you); margin: 0; }
+details summary .title::after { content: " +"; } details[open] summary .title::after { content: " -"; }
+.foot a { color: var(--gold); }
+.nes-btn:focus-visible, .canary:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 
-@media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; grid-template-rows: 62vh auto; height: auto; min-height: 100%; }
-  .panel { border-left: 0; border-top: 1px solid var(--line); overflow: visible; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-  .region { max-width: 100%; padding: 8px 10px; }
-  .region h2 { font-size: 18px; }
-  .controls { justify-content: flex-start; }
-  .narration { font-size: 16px; }
+@media (max-width: 960px) {
+  .app { grid-template-columns: minmax(0, 1fr); height: auto; min-height: 100%; }
+  .left { grid-template-rows: 62vh auto; }
+  .feedgrid { grid-template-columns: 1fr; }
+  .panel { border-left: 0; border-top: 4px solid var(--box); overflow: visible; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .nes-balloon.narration { font-size: 9px; max-width: 100%; padding: 10px 12px; }
+  .hud > * { min-width: 0; max-width: 100%; }
+  .region.nes-container { padding: 10px 12px 8px; }
+  .region h2 { font-size: 10px; }
+  .region .meta { font-size: 16px; }
+  .chip { font-size: 8px; padding: 6px 8px; }
+  .bottom { gap: 10px; padding-bottom: 12px; }
 }
-@media (prefers-reduced-motion: reduce) { .fade, .bfill { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .fade { transition: none; } }
 </style>
 </head>
 <body>
 <div class="app">
-  <section class="stage" aria-label="The cave">
-    <canvas id="cave" aria-label="Three dimensional cave with three tunnels"></canvas>
-    <div class="fade" id="fade"></div>
-    <div class="hud-top">
-      <div class="region">
-        <h2 id="regionName">Entering the mine</h2>
-        <div class="where" id="regionWhere">&nbsp;</div>
-        <div class="meta"><span id="regionMeta">Waiting for the first seed</span><span class="tag" id="wxSource">weather</span></div>
+  <div class="left">
+    <section class="stage" aria-label="The mine">
+      <canvas id="cave" aria-label="A miner in front of three tunnels"></canvas>
+      <div class="fade" id="fade"></div>
+      <div class="hud">
+        <div class="region nes-container is-dark is-rounded">
+          <h2 id="regionName">Heading down</h2>
+          <div class="meta" id="regionMeta">Checking the weather</div>
+        </div>
+        <div class="controls">
+          <button id="btnPause" type="button" class="nes-btn">Pause</button>
+          <button type="button" class="nes-btn is-warning" data-speed="1" aria-pressed="true">1×</button>
+          <button type="button" class="nes-btn" data-speed="4" aria-pressed="false">4×</button>
+          <button type="button" class="nes-btn" data-speed="turbo" aria-pressed="false">Fast forward</button>
+        </div>
       </div>
-      <div class="controls">
-        <button id="btnPause" type="button" aria-pressed="false">Pause</button>
-        <span class="seg" role="group" aria-label="Speed">
-          <button type="button" data-speed="1" aria-pressed="true">1×</button>
-          <button type="button" data-speed="4" aria-pressed="false">4×</button>
-          <button type="button" data-speed="turbo" aria-pressed="false">Turbo</button>
-        </span>
-        <button id="btnSound" type="button" aria-pressed="false">Sound off</button>
-        <button id="btnMigrate" type="button" title="Every knocker moves to a different rock. See if the Rookie notices.">Move the knockers</button>
-        <label class="toggle" for="chkPlay"><input type="checkbox" id="chkPlay"> Play along</label>
+      <div class="bottom">
+        <div class="nes-balloon is-dark narration" id="narration" aria-live="polite"></div>
+        <div class="calls" id="calls"></div>
       </div>
-    </div>
-    <div class="bottom">
-      <div class="narration" id="narration" aria-live="polite"></div>
-      <div class="calls" id="calls"></div>
-      <div class="playalong" id="playAlong" hidden>
-        <span id="yourMove">Stay or switch?</span>
-        <button id="btnStay" type="button">Stay</button>
-        <button id="btnSwitch" type="button">Switch</button>
+    </section>
+    <section class="feed" aria-label="Where the randomness comes from">
+      <div class="nes-container is-dark with-title">
+        <p class="title">Where the randomness comes from</p>
+        <div class="feedgrid">
+          <div class="feedtext">
+            <p class="here">This part of the mine uses the weather in <b id="feedHere"></b> right now: <span id="feedWx"></span></p>
+            <p class="callline" id="callLine"></p>
+            <p class="callnote" id="callNote"></p>
+            <p class="callnote">Each reading gets scrambled into a random number, which decides where the gold goes and who’s knocking:</p>
+            <ul class="rolls" id="rolls"></ul>
+          </div>
+          <pre class="callbody" id="callBody"></pre>
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
+  </div>
 
   <aside class="panel">
     <header class="masthead">
-      <h1>Who’s <span class="knock">Knocking</span></h1>
-      <p>Old Cornish miners swore spirits knocked on the walls. Some led you to ore, some messed with you, and some were just creaky timbers. Every knock here is a Monty Hall door, and <strong>“always switch” only works if whoever knocked actually knows where the ore is.</strong> The Rookie is a <strong>tiny AI (<span id="params">710</span> numbers)</strong> learning live in this tab. Nobody tells it the rules. It has to figure out who’s knocking on its own.</p>
+      <h1><i class="nes-icon coin"></i>Pay Dirt</h1>
+      <p>Three tunnels. One has gold.</p>
+      <p>The miner picks a tunnel. Then someone knocks on one of the other two and it caves in. Does he stay, or switch to the last one?</p>
+      <p>It’s the famous Monty Hall puzzle, where the answer is usually “switch.” Here it depends on who knocked:</p>
+      <ul class="who">
+        <li><b>Tommy</b> is friendly. He knows where the gold is and knocks on an empty tunnel. <em>Switch.</em></li>
+        <li><b>The Creaks</b> is just old wood settling. It tells you nothing. <em>Coin flip.</em></li>
+        <li><b>The Joker</b> only knocks when you already picked the gold, hoping you’ll leave. <em>Stay.</em></li>
+      </ul>
+      <p>The <b class="rookie">Rookie</b> is a small AI. Nobody tells it any of this. It learns by watching, live in this tab.</p>
     </header>
 
-    <section>
-      <h3>Who’s knocking? <span>Old Timer’s guess</span></h3>
+    <section class="nes-container is-dark with-title">
+      <p class="title">Who’s knocking?</p>
       <div id="belief"></div>
-      <p class="hint">Old Timer knows every spirit’s habits but not which one lives in this rock. He sharpens his guess with every knock.</p>
-      <ul class="past" id="past"></ul>
+      <p class="hint">Old Timer’s guess for this part of the mine. He knows all three spirits but not which one is here, so he listens to every knock.</p>
     </section>
 
-    <section>
-      <h3>Scoreboard <span id="forkCount">0 forks</span></h3>
-      <table id="scores"></table>
-      <p class="hint">Everyone gets the same fork, the same first pick and the same knock. Only the next move is different, so the gap is skill, not luck.</p>
+    <section class="nes-container is-dark with-title">
+      <p class="title">Scoreboard <span class="forks" id="forkCount"></span></p>
+      <div class="nes-table-responsive"><table id="scores" class="nes-table is-bordered is-dark"></table></div>
+      <ul class="miners">
+        <li><i style="background:#199e70"></i><b>Old Timer</b> knows every spirit’s trick. The best anyone can do.</li>
+        <li><i style="background:#3987e5"></i><b>Rookie</b> is the AI, learning as it goes.</li>
+        <li><i style="background:#d95926"></i><b>Bookworm</b> always switches, because that’s what the book says.</li>
+      </ul>
+      <p class="hint">Everyone hears the same knock. Only their choice is different. <b>Missed</b> is gold lost per 100 picks by not knowing who knocked.</p>
     </section>
 
-    <section>
-      <h3>Ore left on the table <span>vs. knowing the spirit</span></h3>
-      <div class="legend">
-        <span><i style="background:var(--apprentice)"></i>Rookie, the AI</span>
-        <span><i style="background:var(--parrot)"></i>Bookworm, always switches</span>
-        <span><i style="background:var(--oracle)"></i>Old Timer</span>
-        <span><i style="background:var(--you)"></i>You</span>
-      </div>
+    <section class="nes-container is-dark with-title">
+      <p class="title">Is the Rookie learning?</p>
       <div class="chartwrap">
-        <svg id="chart" viewBox="0 0 340 180" role="img" aria-label="Ore left on the table by each miner over time"></svg>
+        <svg id="chart" viewBox="0 0 340 170" role="img" aria-label="Gold missed by each miner over time"></svg>
         <div class="tip" id="chartTip" hidden></div>
       </div>
-      <p class="hint">Flatter is better. Watch the Rookie’s line level off toward Old Timer’s, then wobble each time the knockers move.</p>
+      <p class="hint">Gold missed so far. When a line goes flat, that miner stopped making mistakes. The Bookworm’s keeps climbing because the Joker fools it every time.</p>
     </section>
 
-    <section>
-      <h3>Canaries <span id="canaryCount"></span></h3>
-      <div class="canaries" id="canaries"></div>
-      <p class="hint">Six pop quizzes the Rookie takes every ten forks and never studies for. Each one has a pattern only one spirit could make. Miners used real canaries the same way.</p>
+    <section class="nes-container is-dark with-title">
+      <p class="title">Test questions <span class="forks" id="quizCount"></span></p>
+      <ul class="quiz"><li class="head"><span>If</span><span>Right move</span><span>Rookie says</span><b></b></li></ul>
+      <ul class="quiz" id="quizzes"></ul>
+      <p class="hint">Three questions with known answers that the Rookie never practices on. Getting them right means it learned the rule, not that it got lucky.</p>
     </section>
 
-    <section>
-      <h3>How it’s doing</h3>
-      <dl class="metrics" id="metrics"></dl>
+    <section class="nes-container is-dark with-title">
+      <p class="title">Every pick, saved</p>
+      <p class="hint" id="logCount" style="margin:0"></p>
+      <ul class="loglist" id="logRows"></ul>
+      <div class="logbtns">
+        <button id="btnDownload" type="button" class="nes-btn is-success">Download</button>
+        <button id="btnClearLog" type="button" class="nes-btn">Clear</button>
+      </div>
     </section>
 
-    <details>
-      <summary><h3>Meet the knockers</h3></summary>
-      <ul class="tribes" id="tribes"></ul>
-    </details>
-
-    <section>
-      <h3>Where the dice come from</h3>
-      <p class="hint" id="entropyStatus" style="margin:0 0 8px"></p>
-      <ul class="ledger" id="ledger"></ul>
-      <p class="hint">Same trick as Cloudflare’s wall of lava lamps: real world chaos, scrambled into fair dice. Every roll is logged, so anyone can replay the exact same cave.</p>
-    </section>
-
-    <p class="foot">Open source and free. Runs entirely in your browser.</p>
+    <p class="hint foot">Free and open source. Everything runs in your browser. <a href="https://github.com/porkedchop/pay-dirt" target="_blank" rel="noopener">github.com/porkedchop/pay-dirt</a></p>
   </aside>
 </div>
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
   "simplex-noise": "https://cdn.jsdelivr.net/npm/simplex-noise@4.0.1/dist/esm/simplex-noise.js"
 } }
 </script>

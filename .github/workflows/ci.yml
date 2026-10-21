@@ -16,4 +16,4 @@ jobs:
         with: { python-version: "3.12" }
       - run: pip install -e "python[test]"
       - run: cd python && pytest -q
-      - run: cd python && python -m whos_knocking.evaluate --policy oracle --forks 2000 --seeds 3 --max-regret 1 > /dev/null
+      - run: cd python && python -m pay_dirt.evaluate --policy oldtimer --forks 2000 --seeds 3 --max-regret 1 > /dev/null
