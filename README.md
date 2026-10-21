@@ -1,36 +1,42 @@
 # Pay Dirt
 
-A little AI learns a famous puzzle by mining for gold, live in your browser.
+A tiny AI learns a famous puzzle by mining for gold, live in your browser.
 
-![The miner in front of three tunnels. One is blocked by rubble.](docs/walkthrough/6-calls.png)
+**[▶ Play it](https://porkedchop.github.io/pay-dirt/)** · free, nothing to install
+
+![Three miners in front of three tunnels. One tunnel is blocked by rubble.](docs/walkthrough/6-calls.png)
 
 ## The idea in one minute
 
 Three tunnels. One has gold.
 
-The crew picks a tunnel. Then someone may light dynamite in one of the **other** two tunnels. Boom, that tunnel is blocked and out of play. Now the miner decides: stay with his tunnel, or switch to the one that's left?
+The crew picks a tunnel. Then someone may light dynamite in one of the **other** two tunnels. Boom, that tunnel is blocked and out of play. Now each miner decides: stay with the tunnel, or switch to the one that's left?
 
 That's the **Monty Hall puzzle** from the old TV game show. Most people learn the answer is "always switch." But that's only true because the host *knows* where the prize is. Change who sets off the blast, and the right answer changes too.
 
 | Who lights the dynamite | What they're up to | Right move |
 |---|---|---|
-| **Tommy** | The friendly foreman. He knows where the gold is and blows up an empty tunnel. | Switch (wins 2 out of 3 times) |
+| **The Foreman** | Runs the mine and knows where the gold is. Always blows up an empty tunnel. | Switch (wins 2 out of 3 times) |
 | **Loose Fuse** | Old dynamite going off at random. Sometimes it buries the gold. | Doesn't matter, it's a coin flip |
 | **The Joker** | A prankster who only blows up a tunnel when you already picked the gold, hoping you'll leave. | Stay after a blast, switch when there's none |
 
 Nobody tells the miners who is lighting the dynamite in the part of the mine they're in. They have to figure it out from what happens.
 
-## Who's playing
+## The three miners
 
-Three miners stand in the same spot, see the same first pick, and see the same blast. The only difference is what they do next.
+They stand side by side at the same spot, see the same first pick and the same blast. The only difference is what each one does next, and you can watch each of them walk into the tunnel he chose.
 
-- **Rookie** is the AI. A tiny neural network (162 numbers) that starts out knowing nothing. Nobody tells it the rules or who the characters are. It watches what happens and learns.
-- **Old Timer** knows every character's habits and does the math perfectly. He's the best anyone can do.
-- **Bookworm** always switches after a blast, because that's the textbook answer. It's what an AI does when it memorized the famous puzzle instead of thinking about it.
+- **Rookie** (blue shirt, middle) is the AI. A tiny neural network (162 numbers) that starts out knowing nothing. Nobody tells it the rules or who the characters are. It watches what happens and learns.
+- **Old Timer** (green shirt, grey beard, left) knows every character's habits and does the math perfectly. He's the best anyone can do.
+- **Bookworm** (orange shirt, glasses, nose in a book, right) always switches after a blast, because that's the textbook answer. It's what an AI does when it memorized the famous puzzle instead of thinking about it.
 
 ## Walkthrough
 
-**1. A part of the mine ends.** The camera moves in close and shows how everyone did. Here it was Loose Fuse, which is pure luck, so nobody did much better than anyone else.
+**0. Opening the page.** A welcome card explains the game while the mine is already running behind it.
+
+![The welcome card](docs/walkthrough/0-welcome.png)
+
+**1. A part of the mine ends.** The camera moves in close on the crew and shows how everyone did. Here it was Loose Fuse, which is pure luck, so nobody did much better than anyone else.
 
 ![Part done: Loose Fuse, and how many times each miner found gold](docs/walkthrough/1-done.png)
 
@@ -38,7 +44,7 @@ Three miners stand in the same spot, see the same first pick, and see the same b
 
 ![Shuffling the next part with the weather in St Just, England](docs/walkthrough/2-shuffle.png)
 
-**3. The crew picks a tunnel.** Top left shows the town whose weather shuffled this part, and Old Timer's guess for who is behind the dynamite.
+**3. The crew picks a tunnel.** Top left: the town whose weather shuffled this part. On the right, notes explain what's going on, including Old Timer's guess for who is behind the dynamite.
 
 ![The crew picks a tunnel](docs/walkthrough/3-pick.png)
 
@@ -46,23 +52,23 @@ Three miners stand in the same spot, see the same first pick, and see the same b
 
 ![The blast](docs/walkthrough/4-boom.png)
 
-**5. The headlamp checks the rubble.** That tunnel is blocked, so two are left.
+**5. The headlamps check the rubble.** That tunnel is blocked, so two are left.
 
-![The headlamp lights up the rubble](docs/walkthrough/5-rubble.png)
+![The headlamps light up the rubble](docs/walkthrough/5-rubble.png)
 
-**6. Everyone decides.** The colored lights show where each miner is going, and the headlamp shows the Rookie's choice. Old Timer is sure this is the Joker, so he stays. The Rookie figured out the same thing. The Bookworm switches, which is exactly what the Joker wanted.
+**6. Everyone decides.** Each miner turns and shines his lamp down the tunnel he picked. Old Timer is sure this is the Joker, so he stays. The Rookie worked out the same thing. The Bookworm switches, which is exactly what the Joker wanted.
 
 ![Old Timer and the Rookie stay, the Bookworm switches](docs/walkthrough/6-calls.png)
 
-**7. The gold is revealed** and the score at the bottom updates.
+**7. The gold is revealed,** and each miner walks into his tunnel.
 
 ![The gold is revealed](docs/walkthrough/7-reveal.png)
 
-**8. The ? button** explains the rules and shows whether the Rookie is learning: a chart of gold missed over time, three test questions, and every pick saved to your device.
+**8. The notes** on the right cover the rules, Old Timer's guess, the score, a chart of whether the Rookie is learning, three test questions, where the randomness came from, and every pick saved to your device. **Hide notes** gives you the full screen.
 
-![The how it works screen](docs/walkthrough/8-help.png)
+![The notes column](docs/walkthrough/8-notes.png)
 
-It works on a phone too.
+It works on a phone too, with the notes under the game.
 
 ![The phone layout](docs/walkthrough/9-phone.png)
 
@@ -102,11 +108,11 @@ cd web && python3 -m http.server 8000
 # http://localhost:8000/#turbo starts in fast forward
 ```
 
-Replay an exact run (handy for bug reports and screenshots): `http://localhost:8000/?seed=7&skip=1209&freeze=calls`. The freeze points are `pick`, `boom`, `blast`, `calls`, `reveal`, `done` and `shuffle`.
+Replay an exact run (handy for bug reports and screenshots): `http://localhost:8000/?seed=7&skip=1209&freeze=calls`. The freeze points are `pick`, `boom`, `blast`, `calls`, `reveal`, `done` and `shuffle`. Replay mode skips the welcome card.
 
 ## Every pick, saved
 
-Every pick is saved in your browser, so it survives a reload. The **Download** button (under **?**) gives you all of it as a JSONL file: who was behind the dynamite, which tunnel blew up, each miner's choice and how sure it was, and whether it found gold.
+Every pick is saved in your browser, so it survives a reload. The **Download** button in the notes gives you all of it as a JSONL file: who was behind the dynamite, which tunnel blew up, each miner's choice and how sure it was, and whether it found gold.
 
 To make a big log without the animation:
 

@@ -27,8 +27,8 @@ export const CREAKS = 1; // monty fall
 export const JOKER = 2; // monty from hell
 
 export const SPIRITS = [
-  { id: TOMMY, name: 'Tommy', short: 'Tommy',
-    rule: 'The friendly foreman. He knows where the gold is and always blows up an empty tunnel you didn’t pick.',
+  { id: TOMMY, name: 'The Foreman', short: 'Foreman',
+    rule: 'He runs the mine and knows where the gold is. He always blows up an empty tunnel you didn’t pick.',
     lesson: 'Switch. He knows, so switching wins 2 out of 3 times.' },
   { id: CREAKS, name: 'Loose Fuse', short: 'Loose Fuse',
     rule: 'Old dynamite left behind that goes off at random. Sometimes it buries the gold.',

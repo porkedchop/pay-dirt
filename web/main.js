@@ -12,9 +12,11 @@ const nick = (n) => NICK[n] || n;
 const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
 const pct = (p) => (p === null || p === undefined ? '' : `${Math.round(p * 100)}%`);
 const verb = (a) => (a === 'switch' ? 'switches' : 'stays');
+const dot = (n) => `<i class="dot" style="background:${hex(MINER_COLORS[n])}"></i>`;
 
 const state = { speed: 1, paused: false, turbo: false };
-const PACE = 1.6; // seconds per step at 1x are multiplied by this
+const PACE = 2; // seconds per step at 1x are multiplied by this
+const READ = 24; // characters per second a caption gets to stay up, at 1x
 let ex, cave, dice, log;
 let lastPart = -1, tally = null, skipCard = null;
 
@@ -26,7 +28,8 @@ const wait = (s) => new Promise((r) => {
   const go = () => (state.paused ? setTimeout(go, 120) : setTimeout(r, (s * 1000 * PACE) / state.speed));
   go();
 });
-const say = (text) => { $('narration').textContent = text; };
+// show a caption and keep it up long enough to read
+const say = (text, min = 0) => { $('narration').textContent = text; return wait(Math.max(min, text.length / READ / PACE * 1.6)); };
 
 async function forkCycle() {
   const { f, calls, region } = ex.open();
@@ -38,6 +41,7 @@ async function forkCycle() {
     cave.build(f);
     $('fade').classList.remove('on');
     renderTop(region);
+    renderNotes();
     await recap(done, region);
   }
   cave.setRegion(region, dice.weather[region.town]);
@@ -46,55 +50,46 @@ async function forkCycle() {
   renderTop(region);
   $('calls').innerHTML = '';
 
-  say(`The crew picks tunnel ${ROMAN[f.pick]}.`);
   cave.pick(f.pick);
   await freeze('pick');
-  await wait(1.1);
+  await say(`The crew picks tunnel ${ROMAN[f.pick]}.`, 0.8);
 
   if (f.k !== null) {
-    say(`Someone lit dynamite in tunnel ${ROMAN[f.k]}…`);
     cave.blast(f.k, f.ring);
-    await wait(0.6);
-    say(f.ring ? `Boom! Tunnel ${ROMAN[f.k]} is gone, and the gold was in it. It’s buried.` : `Boom! Tunnel ${ROMAN[f.k]} is blown shut. It’s out.`);
+    await say(`Someone lit dynamite in tunnel ${ROMAN[f.k]}…`, 0.6);
+    $('narration').textContent = f.ring ? `Boom! Tunnel ${ROMAN[f.k]} is gone, and the gold was in it.` : `Boom! Tunnel ${ROMAN[f.k]} is blown shut.`;
     await freeze('boom');
-  } else {
-    say('No blast this time. All three tunnels are still open.');
-  }
-  await wait(0.7);
-  if (f.k !== null) {
+    await wait(0.8);
     cave.inspect(f.k);
-    say(f.ring ? `The headlamp finds gold dust in the rubble of tunnel ${ROMAN[f.k]}. Nobody can dig it out now.` : `The headlamp checks tunnel ${ROMAN[f.k]}: nothing but rubble. That leaves ${ROMAN[f.pick]} and ${ROMAN[f.target]}.`);
+    await say(f.ring ? `The gold is buried under the rubble in tunnel ${ROMAN[f.k]}. Nobody can get it now.` : `Nothing in tunnel ${ROMAN[f.k]} but rubble. That leaves tunnels ${ROMAN[f.pick]} and ${ROMAN[f.target]}.`, 1);
     await freeze('blast');
-    await wait(1.2);
   } else {
+    await say('No blast this time. All three tunnels are still open.', 1);
     await freeze('blast');
-    await wait(0.5);
   }
 
-  const rookieGoes = calls.Apprentice.action === 'switch' ? f.target : f.pick;
   cave.showCalls(calls, f);
-  cave.aim(rookieGoes);
   renderCalls(calls);
-  say(Object.entries(calls).map(([n, c]) => `${nick(n)} ${verb(c.action)}.`).join(' '));
-  await wait(0.5);
+  const callLine = Object.entries(calls).map(([n, c]) => `${nick(n)} ${verb(c.action)}.`).join(' ');
+  $('narration').textContent = callLine;
   await freeze('calls');
-  await wait(1.1);
+  await say(callLine, 1.2);
 
   const res = ex.resolve();
   log.add(rowFor(ex, res, log.run));
   count(res);
   cave.reveal(f);
   const winners = Object.entries(calls).filter(([, c]) => won(f, c.action)).map(([n]) => nick(n));
-  say(f.ring ? 'Nobody gets gold this time.' : `The gold was in tunnel ${ROMAN[f.ore]}. ${winners.length ? `${winners.join(' and ')} got it!` : 'Nobody got it.'}`);
-  renderScore();
-  await wait(0.9);
+  renderNotes();
+  const result = f.ring ? 'Nobody gets gold this time.' : `The gold was in tunnel ${ROMAN[f.ore]}. ${winners.length ? `${winners.join(' and ')} got it!` : 'Nobody got it.'}`;
+  $('narration').textContent = result;
   await freeze('reveal');
-  await wait(0.6);
+  await say(result, 1.2);
 
-  cave.advance(rookieGoes);
-  await wait(1.0);
+  cave.advance();
+  await wait(1.1);
   $('fade').classList.add('on');
-  await wait(0.45);
+  await wait(0.4);
   cave.stopWalk();
 }
 
@@ -104,11 +99,11 @@ function count({ f, calls }) {
   for (const n of SERIES) if (won(f, calls[n].action)) tally.gold[n] += 1;
 }
 
-// between parts: how the last part went, then how the next one was shuffled
+// between parts: close up on the crew, how the last part went, then how the next one was shuffled
 async function recap(done, R) {
-  if (state.turbo) return;
+  if (state.turbo || !$('intro').hidden) return; // never block the live run while the welcome card is up
   cave.closeUp(true);
-  say('');
+  $('narration').textContent = '';
   $('calls').innerHTML = '';
   const cards = [];
   if (done && done.forks) cards.push(() => doneCard(done));
@@ -119,7 +114,7 @@ async function recap(done, R) {
     $('recapCard').innerHTML = cards[i]() + `<div class="cardbtns"><span class="dots">${cards.map((_, j) => `<i class="${j === i ? 'on' : ''}"></i>`).join('')}</span><button type="button" class="btn" id="btnNext">${last ? 'Start digging' : 'Next'}</button></div>`;
     $('btnNext').onclick = () => skipCard?.();
     await freeze(last ? 'shuffle' : 'done');
-    await Promise.race([wait(last ? 6 : 4), new Promise((r) => { skipCard = r; })]);
+    await Promise.race([wait(10), new Promise((r) => { skipCard = r; })]); // waits for a click, moves on by itself after ~20s at 1x
   }
   $('recap').hidden = true;
   cave.closeUp(false);
@@ -128,22 +123,24 @@ async function recap(done, R) {
 
 function doneCard(t) {
   const s = SPIRITS[t.spirit];
-  const rows = SERIES.map((n) => `<li><span><i style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${hex(MINER_COLORS[n])};margin-right:7px"></i>${nick(n)}</span>
-    <span class="bar"><span style="width:${(100 * t.gold[n]) / t.forks}%;background:${hex(MINER_COLORS[n])}"></span></span><span class="num">${t.gold[n]} of ${t.forks}</span></li>`).join('');
+  const rows = SERIES.map((n) => `<li><span>${dot(n)} ${nick(n)}</span><span class="bar"><span style="width:${(100 * t.gold[n]) / t.forks}%;background:${hex(MINER_COLORS[n])}"></span></span><span class="num">${t.gold[n]} of ${t.forks}</span></li>`).join('');
   const fooled = t.spirit === 2 && t.gold.Parrot < t.gold.Apprentice ? ' The Bookworm fell for it.' : '';
-  return `<h2>Part ${t.part + 1} done</h2><p class="sub">It was <b>${s.name}</b> setting off the dynamite. ${s.lesson}${fooled}</p>
+  return `<h2>Part ${t.part + 1} done</h2><p class="sub">It was <b>${s.name}</b> lighting the dynamite. ${s.lesson}${fooled}</p>
     <ul class="tally">${rows}</ul><p>Gold each miner found in that part of the mine.</p>`;
+}
+
+function apiLine() {
+  const c = dice.calls[0];
+  if (!c) return 'Replay mode: this uses weather saved on Oct 21, so the run comes out the same every time.';
+  if (c.ok) return `We asked open-meteo.com, a free weather service, at ${c.at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. It answered in ${c.ms} ms.`;
+  return 'Couldn’t reach the weather service from here, so this uses weather saved on Oct 21 plus your browser’s own randomness.';
 }
 
 function shuffleCard(R) {
   const t = TOWNS[R.town], w = dice.weather[R.town];
-  const c = dice.calls[0];
-  const api = !c ? 'Replay mode: this uses weather saved on Oct 21, so the run comes out the same every time.'
-    : c.ok ? `We just asked open-meteo.com, a free weather service. It answered in ${c.ms} ms.`
-    : 'Couldn’t reach the weather service from here, so this uses weather saved on Oct 21 plus your browser’s own randomness.';
   return `<h2>Shuffling part ${R.index + 1}</h2><p class="sub">Each part of the mine is shuffled with real weather, so nobody can predict it. Not even us.</p>
     <ol class="steps">
-      <li><span class="n">1</span><div><h3>Check the weather in ${t.city}, ${t.country}</h3><p>${w.temperature_2m}°C, wind ${w.wind_speed_10m} km/h, humidity ${w.relative_humidity_2m}%, rain ${w.precipitation} mm</p><p class="api">${api}</p></div></li>
+      <li><span class="n">1</span><div><h3>Check the weather in ${t.city}, ${t.country}</h3><p>${w.temperature_2m}°C, wind ${w.wind_speed_10m} km/h, humidity ${w.relative_humidity_2m}%, rain ${w.precipitation} mm</p><p class="api">${apiLine()}</p></div></li>
       <li><span class="n">2</span><div><h3>Scramble it into a number</h3><p class="big">${R.seed.toString(16).padStart(8, '0')}</p><p>Like shaking a jar of weather. Change one tiny thing and you get a completely different number.</p></div></li>
       <li><span class="n">3</span><div><h3>That number decides everything</h3><p>Who is lighting the dynamite here (kept secret from the miners), how long this part lasts (<b>${R.length} picks</b>), and where the gold is each time.</p></div></li>
     </ol>`;
@@ -152,7 +149,7 @@ function shuffleCard(R) {
 async function runLoop() {
   let lastPaint = 0;
   for (;;) {
-    if (state.paused || !$('help').hidden) { await new Promise((r) => setTimeout(r, 150)); continue; }
+    if (state.paused) { await new Promise((r) => setTimeout(r, 150)); continue; }
     if (!state.turbo) { await forkCycle(); continue; }
     const t0 = performance.now();
     let last;
@@ -166,8 +163,8 @@ async function runLoop() {
       cave.showCalls(last.calls, last.f);
       renderTop(R);
       renderCalls(last.calls);
-      renderScore();
-      say(`Fast forward: pick ${(last.f.index + 1).toLocaleString()}. The Rookie is practicing as fast as it can.`);
+      renderNotes();
+      $('narration').textContent = `Fast forward: pick ${(last.f.index + 1).toLocaleString()}. The Rookie is practicing as fast as it can.`;
     }
     await new Promise((r) => requestAnimationFrame(r));
   }
@@ -178,9 +175,7 @@ function renderTop(R) {
   $('part').textContent = `Part ${R.index + 1} of the mine · pick ${R.forksDone} of ${R.length}`;
   $('town').textContent = `${t.city}, ${t.country}`;
   $('wx').textContent = `Shuffled with the weather there: ${Math.round(w.temperature_2m)}°C, wind ${Math.round(w.wind_speed_10m)} km/h`;
-  const b = ex.oracle.belief || [];
-  const top = b.indexOf(Math.max(...b));
-  $('guess').innerHTML = b[top] > 0.6 ? `Old Timer thinks it’s <b>${SPIRITS[top].name}</b> (${pct(b[top])} sure)` : 'Old Timer isn’t sure who’s lighting the dynamite yet';
+  renderBelief();
 }
 
 function renderCalls(calls) {
@@ -190,25 +185,35 @@ function renderCalls(calls) {
   }).join('');
 }
 
-function renderScore() {
-  $('scorebar').innerHTML = SERIES.map((n) => `<span><i style="background:${hex(MINER_COLORS[n])}"></i>${nick(n)} <b>${ex.stats[n].ore.toLocaleString()}</b> gold</span>`).join('')
-    + `<span style="color:var(--dim)">after ${ex.world.forkCount.toLocaleString()} picks</span>`;
+function renderBelief() {
+  const b = ex.oracle.belief || SPIRITS.map(() => 1 / SPIRITS.length);
+  const top = b.indexOf(Math.max(...b));
+  $('belief').innerHTML = SPIRITS.map((s, i) => `<div class="meter${i === top ? ' lead' : ''}"><span>${s.name}</span>
+    <span class="bar"><span style="width:${(b[i] * 100).toFixed(0)}%;background:${i === top ? 'var(--gold)' : 'var(--dim)'}"></span></span><span class="v">${pct(b[i])}</span></div>`).join('');
 }
 
-// the ? screen
-function renderHelp() {
-  $('spirits').innerHTML = SPIRITS.map((s) => `<li><b>${s.name}</b>: ${s.rule} <em>${s.lesson}</em></li>`).join('');
+function renderNotes() {
+  renderBelief();
+  $('score').innerHTML = `<span class="h">Miner</span><span class="h">Gold</span><span class="h">Missed per 100</span>`
+    + SERIES.map((n) => { const r = ex.recent(n); return `<span class="who">${dot(n)}${nick(n)}</span><span class="n">${ex.stats[n].ore.toLocaleString()}</span><span class="n">${r === null ? '' : r.toFixed(1)}</span>`; }).join('');
   renderChart();
   $('quizzes').innerHTML = ex.quizzes.map((q) => {
     const said = q.pSwitch > q.pStay ? 'switch' : 'stay';
     const right = q.expect === 'either' ? 'either one' : q.expect;
-    const rookie = q.expect === 'either' ? (q.pass ? 'about 50/50' : `${said}, but too sure`) : said;
-    return `<tr><td>${q.spirit} sets off a blast</td><td>${right}</td><td>${rookie}</td><td class="${q.pass ? 'ok' : 'no'}">${q.pass ? '✓' : '✗'}</td></tr>`;
+    const rookie = q.expect === 'either' ? (q.pass ? 'about 50/50' : `${said}, too sure`) : said;
+    return `<tr><td>${q.spirit} blasts</td><td>${right}</td><td>${rookie}</td><td class="${q.pass ? 'ok' : 'no'}">${q.pass ? '✓' : '✗'}</td></tr>`;
   }).join('');
+  const R = ex.world.region;
+  if (R) {
+    const t = TOWNS[R.town], w = dice.weather[R.town];
+    $('wxNote').innerHTML = `<p>Every part of the mine is shuffled with the real weather in a mining town right now. This part: <b>${t.city}, ${t.country}</b>, ${w.temperature_2m}°C with wind at ${w.wind_speed_10m} km/h.</p>
+      <p>That reading gets scrambled into the number <span class="seed">${R.seed.toString(16).padStart(8, '0')}</span>, which secretly decides who’s lighting the dynamite, how long this part lasts, and where the gold goes.</p>
+      <p class="api">${apiLine()}</p>`;
+  }
   $('logCount').textContent = log.db
-    ? `${(log.stored + log.pending.length).toLocaleString()} picks are saved on this device. Download them to dig through the numbers yourself.`
+    ? `${(log.stored + log.pending.length).toLocaleString()} picks saved on this device. Download them to look through yourself.`
     : 'This browser won’t let the page save, so picks are only kept until you close the tab.';
-  $('logRows').innerHTML = log.recent.slice(-5).reverse().map((r) => {
+  $('logRows').innerHTML = log.recent.slice(-4).reverse().map((r) => {
     const c = r.calls.rookie;
     const ev = r.knock === null ? 'no blast' : `blast in ${ROMAN[r.knock]}`;
     return `<li><span>#${r.fork + 1}</span><span>${SPIRITS[r.spirit].name}, ${ev}. Rookie ${c.move === 'switch' ? 'switched' : 'stayed'}</span><span class="${c.hit ? 'hit' : 'miss'}">${c.hit ? 'gold' : 'empty'}</span></li>`;
@@ -255,14 +260,14 @@ function bindControls() {
   });
   document.querySelectorAll('[data-speed]').forEach((b) => b.addEventListener('click', () => {
     state.turbo = b.dataset.speed === 'turbo';
-    state.speed = state.turbo ? 4 : +b.dataset.speed;
+    state.speed = state.turbo ? 3 : +b.dataset.speed;
     document.querySelectorAll('[data-speed]').forEach((x) => x.classList.toggle('off', x !== b));
     if (state.turbo) skipCard?.();
   }));
-  $('btnHelp').addEventListener('click', () => { renderHelp(); $('help').hidden = false; });
-  $('btnCloseHelp').addEventListener('click', () => { $('help').hidden = true; });
-  $('help').addEventListener('click', (e) => { if (e.target === $('help')) $('help').hidden = true; });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('help').hidden = true; });
+  $('btnNotes').addEventListener('click', () => {
+    const bare = $('app').classList.toggle('bare');
+    $('btnNotes').textContent = bare ? 'Show notes' : 'Hide notes';
+  });
   $('btnDownload').addEventListener('click', async () => {
     const rows = await log.all();
     const a = document.createElement('a');
@@ -271,12 +276,21 @@ function bindControls() {
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   });
-  $('btnClearLog').addEventListener('click', async () => { await log.clear(); renderHelp(); });
+  $('btnClearLog').addEventListener('click', async () => { await log.clear(); renderNotes(); });
 }
 
 async function boot() {
   bindControls();
-  say('Checking the weather…');
+  $('spirits').innerHTML = SPIRITS.map((s) => `<li><b>${s.name}</b>: ${s.rule} <em>${s.lesson}</em></li>`).join('');
+  $('introSpirits').innerHTML = SPIRITS.map((s, i) => `<li><span class="n">${i + 1}</span><div><h3>${s.name}</h3><p>${s.rule} <b>${s.lesson}</b></p></div></li>`).join('');
+  let seen = false;
+  try { seen = localStorage.getItem('payDirtSeen') === '1'; } catch { /* storage blocked, show it */ }
+  if (!seen && !DEV.seed) $('intro').hidden = false;
+  $('btnIntro').addEventListener('click', () => {
+    $('intro').hidden = true;
+    try { localStorage.setItem('payDirtSeen', '1'); } catch { /* fine */ }
+  });
+  $('narration').textContent = 'Checking the weather…';
   log = await new DecisionLog().open();
   if (DEV.seed) {
     dice = new WeatherDice();
@@ -293,9 +307,8 @@ async function boot() {
     log.add(rowFor(ex, res, log.run));
   }
   cave = new Cave($('cave'));
-  renderScore();
+  renderNotes();
   if (location.hash === '#turbo') document.querySelector('[data-speed="turbo"]').click();
-  if (location.hash === '#help') { renderHelp(); $('help').hidden = false; }
   const loop = () => { requestAnimationFrame(loop); try { cave.tick(); } catch (e) { console.error(e); } };
   requestAnimationFrame(loop);
   runLoop();

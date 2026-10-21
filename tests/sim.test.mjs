@@ -20,7 +20,7 @@ function rates(spirit) {
 }
 const close = (a, b, msg) => assert.ok(Math.abs(a - b) < 1e-12, `${msg}: ${a} vs ${b}`);
 
-test('Tommy is classic Monty Hall: switching wins 2 in 3', () => {
+test('The Foreman is classic Monty Hall: switching wins 2 in 3', () => {
   const r = rates(TOMMY);
   close(r.stay, 1 / 3, 'stay'); close(r.sw, 2 / 3, 'switch');
 });

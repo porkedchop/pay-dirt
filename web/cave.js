@@ -7,6 +7,12 @@ import { createNoise3D } from 'simplex-noise';
 import { mulberry32 } from './sim.js';
 
 export const MINER_COLORS = { Oracle: 0x199e70, Apprentice: 0x3987e5, Parrot: 0xd95926 };
+const SPOTS = { Oracle: [-4, 6.9], Apprentice: [0, 6], Parrot: [4, 6.9] };
+const STYLES = {
+  Oracle: { shirt: 0x2f8a63, pants: 0x4a4035, helmet: 0x7d6a3a, beard: 0xd8d4cc, stoop: 0.12, pick: true },
+  Apprentice: { shirt: 0x3d7fd6, pants: 0x3c4a63, helmet: 0xf2c230, beard: null, stoop: 0, pick: true },
+  Parrot: { shirt: 0xd9692e, pants: 0x55473a, helmet: 0xb39a4a, beard: null, stoop: 0.06, glasses: true, book: true },
+};
 
 const W = 36, H = 16, BACK = -14, FRONT = 20;
 const ARCH_X = [-10, 0, 10], ARCH_W = 5, ARCH_H = 6;
@@ -52,13 +58,11 @@ export class Cave {
     this.clock = new THREE.Clock();
 
     this.scene.add(new THREE.HemisphereLight(0x9a8a72, 0x1a140c, 0.75));
-    this.lamp = new THREE.SpotLight(0xffdcaa, 3.6, 70, 0.22, 0.5, 0);
-    this.lamp.target = new THREE.Object3D();
     this.lantern = new THREE.PointLight(0xffb866, 2.2, 26, 0);
     this.lantern.position.set(ARCH_X[0] + 4, 5.2, BACK + 1.2);
     this.oreLight = new THREE.PointLight(0xffc860, 0, 18, 0);
     this.pulse = new THREE.PointLight(0xd9c4a0, 0, 18, 0);
-    this.scene.add(this.lamp, this.lamp.target, this.lantern, this.oreLight, this.pulse);
+    this.scene.add(this.lantern, this.oreLight, this.pulse);
 
     this.rockMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 });
     this.room = new THREE.Group();
@@ -67,21 +71,21 @@ export class Cave {
     this.scene.add(this.room, this.regionProps, this.forkProps);
     this.buildShell();
 
-    this.miner = buildMiner();
-    this.scene.add(this.miner);
-    const beamGeo = new THREE.ConeGeometry(2.4, 22, 18, 1, true);
+    // three miners side by side, each with his own headlamp. you watch who walks where
+    const beamGeo = new THREE.ConeGeometry(2.2, 22, 18, 1, true);
     beamGeo.translate(0, -11, 0);
     beamGeo.rotateX(-Math.PI / 2);
-    this.beam = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: 0xffe2a8, transparent: true, opacity: 0.05, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
-    this.scene.add(this.beam);
-
-    this.lanterns = {};
-    for (const [name, color] of Object.entries(MINER_COLORS)) {
-      const g = new THREE.Group();
-      g.add(new THREE.Mesh(new THREE.IcosahedronGeometry(0.45, 0), new THREE.MeshBasicMaterial({ color })), glow(color, 2.6));
-      g.visible = false;
-      this.scene.add(g);
-      this.lanterns[name] = g;
+    const beamMat = new THREE.MeshBasicMaterial({ color: 0xffe2a8, transparent: true, opacity: 0.045, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
+    this.crew = {};
+    for (const [name, spot] of Object.entries(SPOTS)) {
+      const m = buildMiner(STYLES[name]);
+      const home = new THREE.Vector3(spot[0], 0, spot[1]);
+      m.position.copy(home);
+      const lamp = new THREE.SpotLight(0xffdcaa, name === 'Apprentice' ? 3.4 : 2, 70, 0.2, 0.5, 0);
+      lamp.target = new THREE.Object3D();
+      const beam = new THREE.Mesh(beamGeo, beamMat);
+      this.scene.add(m, lamp, lamp.target, beam);
+      this.crew[name] = { m, home, lamp, beam, aim: new THREE.Vector3(home.x, 2, BACK - 5), walk: null, goes: null };
     }
     this.labels = ARCH_X.map((x, i) => {
       const s = makeLabel(['I', 'II', 'III'][i]);
@@ -89,16 +93,11 @@ export class Cave {
       this.scene.add(s);
       return s;
     });
-    this.drips = makePoints(260, 0x9fb4c4, 0.16);
-    this.dust = makePoints(200, 0xb8a48a, 0.1);
-    this.scene.add(this.drips.points, this.dust.points);
-
-    this.home = new THREE.Vector3(0, 0, 6);
-    this.camPos = new THREE.Vector3(0, 6.5, 16);
+    this.home = this.crew.Apprentice.home;
+    this.camPos = new THREE.Vector3(0, 7.4, 18);
     this.camLook = new THREE.Vector3(0, 3.5, -10);
     this.goalPos = this.camPos.clone();
     this.goalLook = this.camLook.clone();
-    this.lampAim = new THREE.Vector3(0, 2, BACK);
     this.effects = [];
     this.weather = { drip: 0.3, wind: 0.4, warmth: 0 };
     this.regionSeed = null;
@@ -338,24 +337,27 @@ export class Cave {
     this.pulse.intensity = 0;
     this.shakeUntil = 0;
     this.labels.forEach((l) => { l.material.opacity = 0.7; });
-    Object.values(this.lanterns).forEach((l) => { l.visible = false; });
-    this.walk = null;
-    this.miner.position.copy(this.home);
-    this.miner.rotation.set(0, 0, 0);
-    this.goalPos.set(0, 6.5, 16);
-    this.goalLook.set(0, 3.5, -10);
-    this.lampAim = new THREE.Vector3(0, 2, BACK);
+    for (const c of Object.values(this.crew)) {
+      c.walk = null; c.goes = null;
+      c.m.position.copy(c.home);
+      c.m.rotation.set(0, 0, 0);
+      c.aim.set(c.home.x, 2, BACK - 5);
+    }
+    this.goalPos.set(0, 7.4, 18);
+    this.goalLook.set(0, 3.2, -10);
   }
 
-  // the headlamp always points where the rookie is about to go
-  aim(t) { this.lampAim = this.inside(t); }
+  aimAll(point) { for (const c of Object.values(this.crew)) c.aim.copy(point); }
+
+  // the rookie's headlamp points where he is about to go
+  aim(t) { this.crew.Apprentice.aim.copy(this.inside(t)); }
 
   // a point a few meters down the tunnel so the beam goes in, not onto the pillar beside it
   inside(t) { return new THREE.Vector3(this.tunnels[t].x, 2, BACK - 5); }
 
   // light up the pile of rubble so you can see the tunnel is blocked. also lands any rock still in the air
   inspect(t) {
-    this.lampAim = new THREE.Vector3(this.tunnels[t].x, 1.6, BACK + 1); // the rubble pile
+    this.aimAll(new THREE.Vector3(this.tunnels[t].x, 1.6, BACK + 1)); // everyone checks the rubble pile
     this.goalLook.set(this.tunnels[t].x * 0.12, 3, -10);
     this.settle();
   }
@@ -367,7 +369,7 @@ export class Cave {
   }
 
   pick(t) {
-    this.lampAim = this.inside(t);
+    this.aimAll(this.inside(t));
     this.goalLook.set(this.tunnels[t].x * 0.12, 3.5, -10); // a small nod, not a swing
     this.labels.forEach((l, i) => { l.material.opacity = i === t ? 1 : 0.5; });
   }
@@ -422,15 +424,12 @@ export class Cave {
     if (ring) { this.ore.visible = true; this.effects.push({ kind: 'ore', start: now, bury: true }); }
   }
 
+  // each miner turns and shines his lamp down the tunnel he picked
   showCalls(calls, f) {
-    const count = {};
-    for (const name of Object.keys(MINER_COLORS)) {
-      const c = calls[name], l = this.lanterns[name];
-      if (!c) { l.visible = false; continue; }
-      const t = c.action === 'switch' ? f.target : f.pick;
-      const slot = (count[t] = (count[t] || 0) + 1) - 1;
-      l.position.copy(this.tunnels[t].mouth).add(new THREE.Vector3((slot - 1) * 1.4, 1.8 + (slot % 2) * 0.8, 1.6));
-      l.visible = true;
+    for (const [name, c] of Object.entries(this.crew)) {
+      if (!calls[name]) continue;
+      c.goes = calls[name].action === 'switch' ? f.target : f.pick;
+      c.aim.copy(this.inside(c.goes));
     }
   }
 
@@ -445,46 +444,47 @@ export class Cave {
   // camera moves in on the miner for the between-parts recap
   closeUp(on) {
     this.close = on;
-    if (on) { this.goalPos.set(2.6, 4.6, this.home.z - 3.4); this.goalLook.set(0, 3.7, this.home.z); }
-    else { this.goalPos.set(0, 6.5, 16); this.goalLook.set(0, 3.5, -10); }
+    if (on) { this.goalPos.set(1.8, 4.6, this.home.z - 3.6); this.goalLook.set(0, 3.6, this.home.z); }
+    else { this.goalPos.set(0, 7.4, 18); this.goalLook.set(0, 3.2, -10); }
   }
 
-  advance(t) {
-    this.walk = { tn: this.tunnels[t], t: 0 };
-    this.goalLook.set(this.tunnels[t].deep.x * 0.3, 3, this.tunnels[t].deep.z);
+  // everyone walks into the tunnel he chose
+  advance() {
+    for (const c of Object.values(this.crew)) if (c.goes !== null) c.walk = { tn: this.tunnels[c.goes], t: 0 };
+    this.goalLook.set(0, 3, BACK - 4);
   }
 
-  stopWalk() { this.walk = null; }
+  stopWalk() { for (const c of Object.values(this.crew)) c.walk = null; }
 
   tick() {
     if (!this.tunnels) return;
     const dt = Math.min(0.05, this.clock.getDelta()), time = this.clock.elapsedTime;
-    if (this.walk) {
-      this.walk.t = Math.min(1, this.walk.t + dt * 0.35);
-      const target = this.home.clone().lerp(new THREE.Vector3(this.walk.tn.x, 0, BACK + 1), this.walk.t);
-      this.miner.position.lerp(target, 0.1);
-      this.miner.lookAt(this.walk.tn.x, 0, BACK - 10);
-      this.miner.rotateY(Math.PI);
-      this.goalPos.set(this.miner.position.x * 0.2, 6.2, Math.max(BACK + 11, this.miner.position.z + 10));
+    for (const c of Object.values(this.crew)) {
+      if (c.walk) {
+        c.walk.t = Math.min(1, c.walk.t + dt * 0.3);
+        const target = c.home.clone().lerp(new THREE.Vector3(c.walk.tn.x + (c.home.x - this.home.x) * 0.25, 0, BACK + 1.5), c.walk.t);
+        c.m.position.lerp(target, 0.1);
+        c.m.lookAt(c.walk.tn.x, 0, BACK - 10);
+        c.m.rotateY(Math.PI);
+      } else { // turn to face where the lamp is going
+        const want = Math.atan2(-(c.aim.x - c.m.position.x), -(c.aim.z - c.m.position.z));
+        c.m.rotation.y += (want - c.m.rotation.y) * 0.12;
+      }
+      c.m.children[0].position.y = Math.sin(time * (c.walk ? 9 : 1.6) + c.home.x) * (c.walk ? 0.1 : 0.04);
+      const head = c.m.userData.lamp.getWorldPosition(new THREE.Vector3());
+      c.lamp.position.copy(head);
+      c.lamp.target.position.lerp(c.aim, 0.14);
+      c.beam.position.copy(head);
+      c.beam.lookAt(c.lamp.target.position);
     }
-    this.miner.children[0].position.y = Math.sin(time * (this.walk ? 9 : 1.6)) * (this.walk ? 0.1 : 0.04);
+    const rk = this.crew.Apprentice;
+    if (rk.walk) this.goalPos.set(rk.m.position.x * 0.2, 6.2, Math.max(BACK + 11, rk.m.position.z + 10));
     this.camPos.lerp(this.goalPos, 0.05);
     this.camLook.lerp(this.goalLook, 0.05);
     const shake = this.shakeUntil > performance.now() ? (this.shakeUntil - performance.now()) / 600 : 0;
     this.camera.position.set(this.camPos.x + Math.sin(time * 0.4) * 0.1 + (Math.random() - 0.5) * shake * 0.8,
       this.camPos.y + Math.sin(time * 0.31) * 0.08 + (Math.random() - 0.5) * shake * 0.6, this.camPos.z);
     this.camera.lookAt(this.camLook);
-
-    const head = this.miner.userData.lamp.getWorldPosition(new THREE.Vector3());
-    this.lamp.position.copy(head);
-    this.lamp.target.position.lerp(this.lampAim, 0.14);
-    if (!this.walk) { // turn to face where the lamp is going
-      const want = Math.atan2(-(this.lampAim.x - this.miner.position.x), -(this.lampAim.z - this.miner.position.z));
-      this.miner.rotation.y += (want - this.miner.rotation.y) * 0.12;
-    }
-    this.lamp.intensity = 3.2 * (0.96 + 0.04 * Math.sin(time * 23) * Math.sin(time * 7));
-    this.beam.position.copy(head);
-    this.beam.lookAt(this.lamp.target.position);
 
     for (const e of [...this.effects]) {
       e.t = (performance.now() - e.start) / 1000; // real clock so slow frames dont stall an effect
@@ -516,9 +516,6 @@ export class Cave {
         this.oreLight.intensity = 3 * s;
       }
     }
-    stepPoints(this.drips, this.weather.drip, (p, i) => { p.y -= dt * (9 + (i % 5)); if (p.y < 0) p.y = H - 0.5; });
-    stepPoints(this.dust, 1, (p, i) => { p.x += dt * this.weather.wind * (1 + (i % 3)); p.y += Math.sin(time + i) * dt * 0.3; if (p.x > W / 2 - 1) p.x = -W / 2 + 1; });
-    for (const l of Object.values(this.lanterns)) if (l.visible) l.children[0].position.y = Math.sin(time * 2 + l.position.x) * 0.2;
     this.renderer.render(this.scene, this.camera);
   }
 }
@@ -551,27 +548,6 @@ function roughen(geo, noise, amp) {
   geo.computeVertexNormals();
 }
 
-function makePoints(n, color, size) {
-  const g = new THREE.BufferGeometry();
-  const a = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) { a[i * 3] = (Math.random() - 0.5) * (W - 2); a[i * 3 + 1] = Math.random() * H; a[i * 3 + 2] = BACK + 1 + Math.random() * (FRONT - BACK - 4); }
-  g.setAttribute('position', new THREE.BufferAttribute(a, 3));
-  return { points: new THREE.Points(g, new THREE.PointsMaterial({ color, size, transparent: true, opacity: 0.7, depthWrite: false })), n };
-}
-
-function stepPoints(sys, share, fn) {
-  const a = sys.points.geometry.attributes.position;
-  const active = Math.floor(sys.n * share);
-  sys.points.geometry.setDrawRange(0, active);
-  const p = { x: 0, y: 0, z: 0 };
-  for (let i = 0; i < active; i++) {
-    p.x = a.getX(i); p.y = a.getY(i); p.z = a.getZ(i);
-    fn(p, i);
-    a.setXYZ(i, p.x, p.y, p.z);
-  }
-  a.needsUpdate = true;
-}
-
 function makeLabel(text) {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 128;
@@ -587,53 +563,75 @@ function makeLabel(text) {
   return s;
 }
 
-// low poly miner from primitives. carbide lamp on the helmet
-function buildMiner() {
+// low poly miner from primitives. style sets the shirt, beard, glasses, book or pickaxe
+function buildMiner(st) {
   const root = new THREE.Group(), body = new THREE.Group();
   root.add(body);
   const mat = (c, extra = {}) => new THREE.MeshStandardMaterial({ color: c, flatShading: true, roughness: 0.9, ...extra });
-  const denim = mat(0x3c4a63), shirt = mat(0x9a5b3a), skin = mat(0xd2a07c), beard = mat(0x5a3b26), boot = mat(0x2a1f17),
-    leather = mat(0x5b3a22), helmet = mat(0xc9a23c, { roughness: 0.5, metalness: 0.2 }), wood = mat(0x7a5532), iron = mat(0x7d8288, { metalness: 0.5, roughness: 0.45 });
+  const pants = mat(st.pants), shirt = mat(st.shirt), skin = mat(0xd2a07c), boot = mat(0x2a1f17), leather = mat(0x5b3a22),
+    helmet = mat(st.helmet, { roughness: 0.45, metalness: 0.25 });
   const add = (geo, m, x, y, z, parent = body) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); parent.add(o); return o; };
   for (const sx of [-0.36, 0.36]) {
     add(new THREE.BoxGeometry(0.5, 0.42, 0.78), boot, sx, 0.21, -0.08);
-    add(new THREE.CylinderGeometry(0.25, 0.23, 1.35, 7), denim, sx, 1.08, 0);
+    add(new THREE.CylinderGeometry(0.25, 0.23, 1.35, 7), pants, sx, 1.08, 0);
   }
-  add(new THREE.CylinderGeometry(0.68, 0.6, 0.6, 8), denim, 0, 1.95, 0);
-  add(new THREE.CylinderGeometry(0.72, 0.68, 1.15, 8), shirt, 0, 2.75, 0);
-  add(new THREE.CylinderGeometry(0.7, 0.7, 0.16, 8), leather, 0, 2.2, 0);
-  for (const sx of [-0.3, 0.3]) add(new THREE.BoxGeometry(0.12, 1.1, 0.06), leather, sx, 2.7, -0.69);
+  const torso = new THREE.Group();
+  torso.position.y = 1.7;
+  torso.rotation.x = -st.stoop;
+  body.add(torso);
+  add(new THREE.CylinderGeometry(0.68, 0.6, 0.6, 8), pants, 0, 0.25, 0, torso);
+  add(new THREE.CylinderGeometry(0.72, 0.68, 1.15, 8), shirt, 0, 1.05, 0, torso);
+  add(new THREE.CylinderGeometry(0.7, 0.7, 0.16, 8), leather, 0, 0.5, 0, torso);
+  for (const sx of [-0.3, 0.3]) add(new THREE.BoxGeometry(0.12, 1.1, 0.06), leather, sx, 1.0, -0.69, torso);
   const arm = (sx, rot) => {
-    const g = new THREE.Group(); g.position.set(sx, 3.2, 0); body.add(g);
+    const g = new THREE.Group(); g.position.set(sx, 1.5, 0); torso.add(g);
     add(new THREE.CylinderGeometry(0.2, 0.17, 1.2, 6), shirt, 0, -0.55, 0, g);
     add(new THREE.IcosahedronGeometry(0.19, 0), skin, 0, -1.2, 0, g);
     g.rotation.set(...rot);
     return g;
   };
-  arm(-0.86, [0, 0, 0.12]);
-  const armR = arm(0.86, [-0.9, 0, -0.15]);
-  add(new THREE.IcosahedronGeometry(0.55, 1), skin, 0, 3.86, 0);
-  add(new THREE.IcosahedronGeometry(0.42, 0), beard, 0, 3.6, -0.3).scale.set(1.1, 0.9, 0.7);
-  add(new THREE.SphereGeometry(0.66, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), helmet, 0, 4.1, 0);
-  add(new THREE.CylinderGeometry(0.88, 0.88, 0.07, 14), helmet, 0, 4.12, 0);
-  const lamp = add(new THREE.SphereGeometry(0.15, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff0c8 }), 0, 4.36, -0.7);
-  // pickaxe slung across his back, head up over the right shoulder so it reads from behind
-  const steel = mat(0xdfe4ea, { metalness: 0.3, roughness: 0.4, emissive: 0x2a2d31 }), handleWood = mat(0xa8743f);
-  const pick = new THREE.Group();
-  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 3.4, 8), handleWood);
-  const collar = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.34, 0.34), steel);
-  collar.position.y = 1.62;
-  pick.add(handle, collar);
-  for (const side of [-1, 1]) {
-    const blade = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.5, 6), steel);
-    blade.rotation.z = side * -(Math.PI / 2 - 0.28); // tips droop a little, the classic curve
-    blade.position.set(side * 0.82, 1.5, 0);
-    pick.add(blade);
+  const head = new THREE.Group(); head.position.y = 2.16; torso.add(head);
+  add(new THREE.IcosahedronGeometry(0.55, 1), skin, 0, 0, 0, head);
+  if (st.beard) add(new THREE.IcosahedronGeometry(0.46, 0), mat(st.beard), 0, -0.3, -0.28, head).scale.set(1.1, 1.05, 0.75);
+  if (st.glasses) {
+    const frame = mat(0x1a1a1a);
+    for (const sx of [-0.2, 0.2]) add(new THREE.TorusGeometry(0.13, 0.03, 4, 10), frame, sx, 0.05, -0.52, head);
+    add(new THREE.BoxGeometry(0.16, 0.03, 0.03), frame, 0, 0.06, -0.53, head);
   }
-  pick.position.set(0.25, 2.9, 0.62);
-  pick.rotation.set(0, 0, -0.62);
-  body.add(pick);
-  armR.rotation.set(-0.2, 0, -0.55); // hand up on the handle
+  add(new THREE.SphereGeometry(0.66, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), helmet, 0, 0.24, 0, head);
+  add(new THREE.CylinderGeometry(0.88, 0.88, 0.07, 14), helmet, 0, 0.26, 0, head);
+  const lamp = add(new THREE.SphereGeometry(0.15, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff0c8 }), 0, 0.5, -0.7, head);
+  if (st.book) {
+    arm(-0.86, [-1.1, 0, 0.35]);
+    arm(0.86, [-1.1, 0, -0.35]);
+    const book = new THREE.Group();
+    add(new THREE.BoxGeometry(0.9, 0.12, 0.66), mat(0x8a2b2b), 0, 0, 0, book);
+    add(new THREE.BoxGeometry(0.84, 0.1, 0.6), mat(0xf1e9d2), 0, 0.08, 0, book);
+    book.position.set(0, 1.15, -0.95);
+    book.rotation.x = 0.5;
+    torso.add(book);
+  } else {
+    arm(-0.86, [0, 0, 0.12]);
+    arm(0.86, [-0.2, 0, -0.55]);
+  }
+  if (st.pick) {
+    // pickaxe slung across his back, head up over the right shoulder so it reads from behind
+    const steel = mat(0xdfe4ea, { metalness: 0.3, roughness: 0.4, emissive: 0x2a2d31 }), handleWood = mat(0xa8743f);
+    const pick = new THREE.Group();
+    pick.add(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 3.4, 8), handleWood));
+    const collar = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.34, 0.34), steel);
+    collar.position.y = 1.62;
+    pick.add(collar);
+    for (const side of [-1, 1]) {
+      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.5, 6), steel);
+      blade.rotation.z = side * -(Math.PI / 2 - 0.28);
+      blade.position.set(side * 0.82, 1.5, 0);
+      pick.add(blade);
+    }
+    pick.position.set(0.25, 1.2, 0.62);
+    pick.rotation.set(0, 0, -0.62);
+    torso.add(pick);
+  }
   root.userData.lamp = lamp;
   return root;
 }

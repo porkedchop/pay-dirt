@@ -137,7 +137,7 @@ export class Apprentice {
 // pop quizzes. fixed histories only one spirit could make, tested on never trained on
 const fill = (...kinds) => Array.from({ length: WINDOW }, (_, i) => kinds[i % kinds.length]);
 export const QUIZZES = [
-  { spirit: 'Tommy', knocked: true, expect: 'switch', history: fill(KIND.KNOCK_MISS, KIND.KNOCK_HIT, KIND.KNOCK_MISS) },
+  { spirit: 'The Foreman', knocked: true, expect: 'switch', history: fill(KIND.KNOCK_MISS, KIND.KNOCK_HIT, KIND.KNOCK_MISS) },
   { spirit: 'Loose Fuse', knocked: true, expect: 'either', history: fill(KIND.KNOCK_MISS, KIND.BURIED, KIND.KNOCK_HIT) },
   { spirit: 'The Joker', knocked: true, expect: 'stay', history: fill(KIND.SILENT, KIND.KNOCK_HIT, KIND.SILENT) },
 ];
