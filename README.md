@@ -4,7 +4,7 @@ A tiny AI learns a famous puzzle by mining for gold, live in your browser.
 
 **[▶ Play it](https://porkedchop.github.io/pay-dirt/)** · free, nothing to install
 
-[![Three miners, three tunnels, one has gold. Dynamite blows one tunnel shut.](docs/pay-dirt.webp)](https://porkedchop.github.io/pay-dirt/)
+[![Three miners, three tunnels, one has gold. Dynamite blows one tunnel shut.](docs/pay-dirt-clip.gif)](https://porkedchop.github.io/pay-dirt/)
 
 ## The idea in one minute
 
