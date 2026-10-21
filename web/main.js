@@ -1,4 +1,5 @@
 import { Expedition, TOWNS } from './expedition.js';
+import { runQuizzes } from './apprentice.js';
 import { WeatherDice } from './entropy.js';
 import { SPIRITS, fnv1a, won } from './sim.js';
 import { Cave, MINER_COLORS } from './cave.js';
@@ -17,7 +18,7 @@ const dot = (n) => `<i class="dot" style="background:${hex(MINER_COLORS[n])}"></
 const state = { speed: 1, paused: false, turbo: false };
 const PACE = 2; // seconds per step at 1x are multiplied by this
 const READ = 24; // characters per second a caption gets to stay up, at 1x
-let ex, cave, dice, log;
+let ex, cave, dice, log, practice;
 let lastPart = -1, tally = null, skipCard = null;
 
 // for screenshots and bug reports: ?seed=7&skip=1300&freeze=blast replays the exact same run and stops there
@@ -99,6 +100,27 @@ function count({ f, calls }) {
   for (const n of SERIES) if (won(f, calls[n].action)) tally.gold[n] += 1;
 }
 
+// a card that moves on by itself. a gold bar shows the time left, hovering pauses it, a click skips
+function countdown(card, seconds) {
+  return new Promise((done) => {
+    const bar = card.querySelector('.countdown span');
+    let left = (seconds * 1000) / state.speed, last = performance.now(), hold = false;
+    card.onmouseenter = () => { hold = true; };
+    card.onmouseleave = () => { hold = false; };
+    const total = left;
+    const tick = () => {
+      const now = performance.now();
+      if (!hold && !state.paused) left -= now - last;
+      last = now;
+      if (bar) bar.style.width = `${Math.max(0, (100 * left) / total)}%`;
+      if (left <= 0 || card.closest('[hidden]')) return done();
+      requestAnimationFrame(tick);
+    };
+    skipCard = () => { left = 0; };
+    requestAnimationFrame(tick);
+  });
+}
+
 // between parts: close up on the crew, how the last part went, then how the next one was shuffled
 async function recap(done, R) {
   if (state.turbo || !$('intro').hidden) return; // never block the live run while the welcome card is up
@@ -111,10 +133,10 @@ async function recap(done, R) {
   $('recap').hidden = false;
   for (let i = 0; i < cards.length; i++) {
     const last = i === cards.length - 1;
-    $('recapCard').innerHTML = cards[i]() + `<div class="cardbtns"><span class="dots">${cards.map((_, j) => `<i class="${j === i ? 'on' : ''}"></i>`).join('')}</span><button type="button" class="btn" id="btnNext">${last ? 'Start digging' : 'Next'}</button></div>`;
+    $('recapCard').innerHTML = cards[i]() + `<div class="countdown"><span></span></div><div class="cardbtns"><span class="dots">${cards.map((_, j) => `<i class="${j === i ? 'on' : ''}"></i>`).join('')}</span><button type="button" class="btn" id="btnNext">${last ? 'Start digging' : 'Next'}</button></div>`;
     $('btnNext').onclick = () => skipCard?.();
     await freeze(last ? 'shuffle' : 'done');
-    await Promise.race([wait(10), new Promise((r) => { skipCard = r; })]); // waits for a click, moves on by itself after ~20s at 1x
+    await countdown($('recapCard'), last ? 26 : 14);
   }
   $('recap').hidden = true;
   cave.closeUp(false);
@@ -197,7 +219,8 @@ function renderNotes() {
   $('score').innerHTML = `<span class="h">Miner</span><span class="h">Gold</span><span class="h">Missed per 100</span>`
     + SERIES.map((n) => { const r = ex.recent(n); return `<span class="who">${dot(n)}${nick(n)}</span><span class="n">${ex.stats[n].ore.toLocaleString()}</span><span class="n">${r === null ? '' : r.toFixed(1)}</span>`; }).join('');
   renderChart();
-  $('quizzes').innerHTML = ex.quizzes.map((q) => {
+  $('practiced').textContent = practice ? `Practice picks so far: ${practice.world.forkCount.toLocaleString()}` : '';
+  $('quizzes').innerHTML = runQuizzes(ex.apprentice).map((q) => {
     const said = q.pSwitch > q.pStay ? 'switch' : 'stay';
     const right = q.expect === 'either' ? 'either one' : q.expect;
     const rookie = q.expect === 'either' ? (q.pass ? 'about 50/50' : `${said}, too sure`) : said;
@@ -224,8 +247,9 @@ function renderNotes() {
 function renderChart() {
   const W = 340, H = 170, L = 34, R = 70, T = 10, B = 24;
   const thin = (s, max = 220) => (s.length <= max ? s : [...Array.from({ length: max }, (_, i) => s[Math.floor((i * s.length) / max)]), s.at(-1)]);
-  const series = SERIES.map((n) => ({ n, pts: thin(ex.stats[n].series) })).filter((x) => x.pts.length);
-  const xmax = Math.max(10, ex.world.forkCount);
+  const src = practice && practice.world.forkCount > ex.world.forkCount ? practice : ex; // the practice mine has far more picks
+  const series = SERIES.map((n) => ({ n, pts: thin(src.stats[n].series) })).filter((x) => x.pts.length);
+  const xmax = Math.max(10, src.world.forkCount);
   const ymax = Math.max(1, ...series.map((x) => x.pts.at(-1)[1])) * 1.08;
   const xs = (x) => L + (x / xmax) * (W - L - R), ys = (y) => T + (1 - y / ymax) * (H - T - B);
   let svg = '';
@@ -287,11 +311,30 @@ async function boot() {
   $('introSpirits').innerHTML = SPIRITS.map((s, i) => `<li><b>${s.name}</b><span>${gist[i]}</span></li>`).join('');
   let seen = false;
   try { seen = localStorage.getItem('payDirtSeen') === '1'; } catch { /* storage blocked, show it */ }
-  if (!seen && !DEV.seed) $('intro').hidden = false;
-  $('btnIntro').addEventListener('click', () => {
+  const closeIntro = () => {
     $('intro').hidden = true;
     try { localStorage.setItem('payDirtSeen', '1'); } catch { /* fine */ }
-  });
+  };
+  $('btnIntro').addEventListener('click', closeIntro);
+  if (!seen && !DEV.seed) {
+    $('intro').hidden = false;
+    const card = $('intro').querySelector('.card');
+    // the welcome card gets its own clock so the mine keeps going behind it
+    let left = 30000, last = performance.now(), hold = false;
+    card.onmouseenter = () => { hold = true; };
+    card.onmouseleave = () => { hold = false; };
+    const bar = card.querySelector('.countdown span');
+    const tick = () => {
+      const now = performance.now();
+      if (!hold) left -= now - last;
+      last = now;
+      bar.style.width = `${Math.max(0, left / 300)}%`;
+      if ($('intro').hidden) return;
+      if (left <= 0) return closeIntro();
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
   $('narration').textContent = 'Checking the weather…';
   log = await new DecisionLog().open();
   if (DEV.seed) {
@@ -307,6 +350,12 @@ async function boot() {
     if (res.f.region !== lastPart) { lastPart = res.f.region; tally = { part: res.f.region, spirit: res.f.spirit, forks: 0, gold: { Apprentice: 0, Oracle: 0, Parrot: 0 } }; }
     count(res);
     log.add(rowFor(ex, res, log.run));
+  }
+  // while you watch one pick, the rookie practices in a second mine out of sight. same brain, about 25 picks a second
+  if (!DEV.seed) {
+    practice = new Expedition({ apprentice: ex.apprentice, seedSource: () => dice.take() });
+    setInterval(() => { if (!state.paused && !state.turbo) for (let i = 0; i < 5; i++) practice.step(); }, 200);
+    setInterval(() => { if (!state.paused) { renderChart(); $('practiced').textContent = `Practice picks so far: ${practice.world.forkCount.toLocaleString()}`; } }, 1000);
   }
   cave = new Cave($('cave'));
   renderNotes();

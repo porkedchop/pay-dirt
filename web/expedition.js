@@ -27,10 +27,13 @@ export const townFor = (seed) => fnv1a(`town:${seed}`) % TOWNS.length;
 const QUIZ_EVERY = 10;
 
 export class Expedition {
-  constructor({ worldCfg = {}, apprenticeCfg = {}, seedSource = null } = {}) {
+  constructor({ worldCfg = {}, apprenticeCfg = {}, seedSource = null, apprentice = null } = {}) {
     this.world = new World(worldCfg);
     this.seedSource = seedSource; // () -> { seed, source } or null to chain from the last seed
-    this.miners = { Oracle: new Oracle(this.world), Apprentice: new Apprentice(apprenticeCfg), Parrot: new Parrot() };
+    // pass an apprentice to share one brain between two mines (the practice mine)
+    this.shared = !!apprentice;
+    this.own = { history: [], lastX: null };
+    this.miners = { Oracle: new Oracle(this.world), Apprentice: apprentice || new Apprentice(apprenticeCfg), Parrot: new Parrot() };
     this.oracle = this.miners.Oracle;
     this.apprentice = this.miners.Apprentice;
     this.stats = {};
@@ -73,7 +76,16 @@ export class Expedition {
     return { f, calls };
   }
 
-  step() { this.open(); return this.resolve(); }
+  step() {
+    if (!this.shared) { this.open(); return this.resolve(); }
+    // a shared brain keeps a separate memory of recent picks for each mine
+    const a = this.apprentice, keep = { history: a.history, lastX: a.lastX };
+    a.history = this.own.history; a.lastX = this.own.lastX;
+    try { this.open(); return this.resolve(); } finally {
+      this.own = { history: a.history, lastX: a.lastX };
+      a.history = keep.history; a.lastX = keep.lastX;
+    }
+  }
 
   // ore missed per 100 forks over the last n, per miner
   recent(name, n = 500) {

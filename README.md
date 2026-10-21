@@ -32,7 +32,7 @@ They stand side by side at the same spot, see the same first pick and the same b
 
 ## Walkthrough
 
-**0. Opening the page.** A short welcome card explains the idea while the mine is already running behind it.
+**0. Opening the page.** A short welcome card explains the idea while the mine is already running behind it. Like every card, it moves on by itself (a gold bar shows the time left), and hovering keeps it open.
 
 ![The welcome card](docs/walkthrough/0-welcome.png)
 
@@ -73,6 +73,8 @@ It works on a phone too, with the notes under the game.
 ![The phone layout](docs/walkthrough/9-phone.png)
 
 ## How we know it's really learning
+
+Watching one pick takes about 15 seconds, and the Rookie needs a few hundred picks to learn anything. So while you watch, it also practices in a second part of the mine, out of sight, about 25 picks a second. It's the same brain in both places, so the chart and the test questions show real progress within a minute or two of opening the page.
 
 Because we built the mine, we always know the right answer at every fork. So every fork is a free test, forever.
 
