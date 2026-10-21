@@ -4,7 +4,7 @@ A tiny AI learns a famous puzzle by mining for gold, live in your browser.
 
 **[▶ Play it](https://porkedchop.github.io/pay-dirt/)** · free, nothing to install
 
-[![Three miners, three tunnels, one has gold. Dynamite blows one tunnel shut.](docs/pay-dirt.gif)](https://porkedchop.github.io/pay-dirt/)
+[![Three miners, three tunnels, one has gold. Dynamite blows one tunnel shut.](docs/pay-dirt.webp)](https://porkedchop.github.io/pay-dirt/)
 
 ## The idea in one minute
 
@@ -40,7 +40,7 @@ They stand side by side at the same spot, see the same first pick and the same b
 
 ![Part done: Loose Fuse, and how many times each miner found gold](docs/walkthrough/1-done.png)
 
-**2. The next part gets shuffled.** This is where the randomness comes from: the real weather in a mining town right now, scrambled into a number. That number secretly decides who's lighting the dynamite, how long this part lasts, and where the gold is.
+**2. The weather decides where the gold is.** Each part of the mine starts by checking the real weather in a mining town right now and scrambling it into a number. That number hides the gold behind one of the three tunnels before every pick, and secretly picks who's behind the dynamite.
 
 ![Shuffling the next part with the weather in St Just, England](docs/walkthrough/2-shuffle.png)
 
@@ -90,11 +90,13 @@ What it shows so far (5,000 picks, measured over the last 1,000):
 
 The Rookie gets close to Old Timer within a couple thousand picks. The Bookworm never improves, because the Joker fools it every single time.
 
-## Where the randomness comes from
+## The weather decides where the gold is
 
 Cloudflare famously keeps a wall of lava lamps and turns photos of them into random numbers. Pay Dirt does the same thing with the weather.
 
-One free request to [Open-Meteo](https://open-meteo.com) (no account, no key) gets the current weather in eight real mining towns: St Just (England), Kiruna (Sweden), Potosí (Bolivia), Kalgoorlie (Australia), Butte (USA), Wieliczka (Poland), Calama (Chile) and Falun (Sweden). Each part of the mine takes the next town's reading and scrambles it with SHA-256 into a random number. That number decides who's lighting the dynamite, how long that part of the mine lasts, and where the gold goes. The weather is checked again every 15 minutes.
+One free request to [Open-Meteo](https://open-meteo.com) (no account, no key) gets the current weather in eight real mining towns: St Just (England), Kiruna (Sweden), Potosí (Bolivia), Kalgoorlie (Australia), Butte (USA), Wieliczka (Poland), Calama (Chile) and Falun (Sweden). Each part of the mine takes the next town's reading and scrambles it with SHA-256 into a random number. That number rolls the dice for **where the gold is** on every pick (each tunnel gets an even 1 in 3 chance), which tunnel the crew picks first, and, once per part, who's behind the dynamite and how long the part lasts.
+
+The dynamite itself is **not** random, and that's the point. It's a clue: where it goes depends on where the gold is and on who lit it. The Foreman never blows up the gold, so his blast pushes the odds to 2 in 3 for switching. The Joker only blasts when you already picked the gold, so his blast means your tunnel is a sure thing. Loose Fuse is the only truly random blast, so it tells you nothing. The Rookie has to learn which kind of clue it's looking at. The weather is checked again every 15 minutes.
 
 The weather also changes how the cave looks: more drips when it's raining, more fog when it's humid, dust blowing when it's windy.
 

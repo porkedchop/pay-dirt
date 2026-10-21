@@ -445,7 +445,7 @@ export class Cave {
   // camera moves in on the miner for the between-parts recap
   closeUp(on) {
     this.close = on;
-    if (on) { this.goalPos.set(1.8, 4.6, this.home.z - 3.6); this.goalLook.set(0, 3.6, this.home.z); }
+    if (on) { this.goalPos.set(0, 4.6, this.home.z - 8.5); this.goalLook.set(0, 3.3, this.home.z); } // in front of the crew, looking at their faces
     else { this.goalPos.set(0, 10, 19); this.goalLook.set(0, 2.4, -10); }
   }
 

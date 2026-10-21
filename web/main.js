@@ -138,11 +138,11 @@ function apiLine() {
 
 function shuffleCard(R) {
   const t = TOWNS[R.town], w = dice.weather[R.town];
-  return `<h2>Shuffling part ${R.index + 1}</h2><p class="sub">Each part of the mine is shuffled with real weather, so nobody can predict it. Not even us.</p>
+  return `<h2>The weather decides where the gold is</h2><p class="sub">Part ${R.index + 1} of the mine. The gold is hidden using the real weather right now, so nobody can predict where it is. Not even us.</p>
     <ol class="steps">
       <li><span class="n">1</span><div><h3>Check the weather in ${t.city}, ${t.country}</h3><p>${w.temperature_2m}°C, wind ${w.wind_speed_10m} km/h, humidity ${w.relative_humidity_2m}%, rain ${w.precipitation} mm</p><p class="api">${apiLine()}</p></div></li>
       <li><span class="n">2</span><div><h3>Scramble it into a number</h3><p class="big">${R.seed.toString(16).padStart(8, '0')}</p><p>Like shaking a jar of weather. Change one tiny thing and you get a completely different number.</p></div></li>
-      <li><span class="n">3</span><div><h3>That number decides everything</h3><p>Who is lighting the dynamite here (kept secret from the miners), how long this part lasts (<b>${R.length} picks</b>), and where the gold is each time.</p></div></li>
+      <li><span class="n">3</span><div><h3>That number hides the gold</h3><p>Before every pick it puts the gold behind <b>tunnel I, II or III</b>, each one equally likely. For the next <b>${R.length} picks</b> it also picks the crew’s first tunnel, and secretly picks who’s behind the dynamite.</p><p class="api">The dynamite isn’t random. It’s a clue about where the weather put the gold.</p></div></li>
     </ol>`;
 }
 
@@ -174,7 +174,7 @@ function renderTop(R) {
   const t = TOWNS[R.town], w = dice.weather[R.town];
   $('part').textContent = `Part ${R.index + 1} of the mine · pick ${R.forksDone} of ${R.length}`;
   $('town').textContent = `${t.city}, ${t.country}`;
-  $('wx').textContent = `Shuffled with the weather there: ${Math.round(w.temperature_2m)}°C, wind ${Math.round(w.wind_speed_10m)} km/h`;
+  $('wx').textContent = `The weather here decides where the gold is: ${Math.round(w.temperature_2m)}°C, wind ${Math.round(w.wind_speed_10m)} km/h`;
   renderBelief();
 }
 
@@ -206,8 +206,9 @@ function renderNotes() {
   const R = ex.world.region;
   if (R) {
     const t = TOWNS[R.town], w = dice.weather[R.town];
-    $('wxNote').innerHTML = `<p>Every part of the mine is shuffled with the real weather in a mining town right now. This part: <b>${t.city}, ${t.country}</b>, ${w.temperature_2m}°C with wind at ${w.wind_speed_10m} km/h.</p>
-      <p>That reading gets scrambled into the number <span class="seed">${R.seed.toString(16).padStart(8, '0')}</span>, which secretly decides who’s lighting the dynamite, how long this part lasts, and where the gold goes.</p>
+    $('wxNote').innerHTML = `<p><b>The real weather decides where the gold is.</b> For this part of the mine it’s the weather in <b>${t.city}, ${t.country}</b> right now: ${w.temperature_2m}°C with wind at ${w.wind_speed_10m} km/h.</p>
+      <p>That reading gets scrambled into the number <span class="seed">${R.seed.toString(16).padStart(8, '0')}</span>, which hides the gold behind tunnel I, II or III before every pick. It also picks the crew’s first tunnel and, secretly, who’s behind the dynamite.</p>
+      <p>The dynamite itself isn’t random. It’s a clue about where the weather put the gold, and how good a clue depends on who lit it.</p>
       <p class="api">${apiLine()}</p>`;
   }
   $('logCount').textContent = log.db
