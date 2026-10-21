@@ -55,11 +55,11 @@ async function forkCycle() {
   await say(`The crew picks tunnel ${ROMAN[f.pick]}.`, 0.8);
 
   if (f.k !== null) {
-    cave.blast(f.k, f.ring);
-    await say(`Someone lit dynamite in tunnel ${ROMAN[f.k]}…`, 0.6);
+    $('narration').textContent = `Someone lit dynamite in tunnel ${ROMAN[f.k]}…`;
+    await cave.blast(f.k, f.ring, 2 / state.speed); // the boom line waits for the actual boom
     $('narration').textContent = f.ring ? `Boom! Tunnel ${ROMAN[f.k]} is gone, and the gold was in it.` : `Boom! Tunnel ${ROMAN[f.k]} is blown shut.`;
     await freeze('boom');
-    await wait(0.8);
+    await wait(1.0);
     cave.inspect(f.k);
     await say(f.ring ? `The gold is buried under the rubble in tunnel ${ROMAN[f.k]}. Nobody can get it now.` : `Nothing in tunnel ${ROMAN[f.k]} but rubble. That leaves tunnels ${ROMAN[f.pick]} and ${ROMAN[f.target]}.`, 1);
     await freeze('blast');
@@ -282,7 +282,8 @@ function bindControls() {
 async function boot() {
   bindControls();
   $('spirits').innerHTML = SPIRITS.map((s) => `<li><b>${s.name}</b>: ${s.rule} <em>${s.lesson}</em></li>`).join('');
-  $('introSpirits').innerHTML = SPIRITS.map((s, i) => `<li><span class="n">${i + 1}</span><div><h3>${s.name}</h3><p>${s.rule} <b>${s.lesson}</b></p></div></li>`).join('');
+  const gist = ['knows where the gold is → switch', 'random, could be anywhere → coin flip', 'only blasts when you’re right → stay'];
+  $('introSpirits').innerHTML = SPIRITS.map((s, i) => `<li><b>${s.name}</b><span>${gist[i]}</span></li>`).join('');
   let seen = false;
   try { seen = localStorage.getItem('payDirtSeen') === '1'; } catch { /* storage blocked, show it */ }
   if (!seen && !DEV.seed) $('intro').hidden = false;
@@ -309,6 +310,7 @@ async function boot() {
   cave = new Cave($('cave'));
   renderNotes();
   if (location.hash === '#turbo') document.querySelector('[data-speed="turbo"]').click();
+  if (location.hash === '#bare') $('btnNotes').click(); // just the cave, for clips and streams
   const loop = () => { requestAnimationFrame(loop); try { cave.tick(); } catch (e) { console.error(e); } };
   requestAnimationFrame(loop);
   runLoop();

@@ -4,7 +4,7 @@ A tiny AI learns a famous puzzle by mining for gold, live in your browser.
 
 **[▶ Play it](https://porkedchop.github.io/pay-dirt/)** · free, nothing to install
 
-![Three miners in front of three tunnels. One tunnel is blocked by rubble.](docs/walkthrough/6-calls.png)
+[![Three miners, three tunnels, one has gold. Dynamite blows one tunnel shut.](docs/pay-dirt.gif)](https://porkedchop.github.io/pay-dirt/)
 
 ## The idea in one minute
 
@@ -32,7 +32,7 @@ They stand side by side at the same spot, see the same first pick and the same b
 
 ## Walkthrough
 
-**0. Opening the page.** A welcome card explains the game while the mine is already running behind it.
+**0. Opening the page.** A short welcome card explains the idea while the mine is already running behind it.
 
 ![The welcome card](docs/walkthrough/0-welcome.png)
 
@@ -48,7 +48,7 @@ They stand side by side at the same spot, see the same first pick and the same b
 
 ![The crew picks a tunnel](docs/walkthrough/3-pick.png)
 
-**4. Someone lights dynamite in another tunnel.** Boom.
+**4. Someone lights dynamite in another tunnel.** The headlamps find it strapped to the timber, the fuse burns, and boom.
 
 ![The blast](docs/walkthrough/4-boom.png)
 
@@ -108,7 +108,7 @@ cd web && python3 -m http.server 8000
 # http://localhost:8000/#turbo starts in fast forward
 ```
 
-Replay an exact run (handy for bug reports and screenshots): `http://localhost:8000/?seed=7&skip=1209&freeze=calls`. The freeze points are `pick`, `boom`, `blast`, `calls`, `reveal`, `done` and `shuffle`. Replay mode skips the welcome card.
+Replay an exact run (handy for bug reports and screenshots): `http://localhost:8000/?seed=7&skip=1209&freeze=calls`. The freeze points are `pick`, `boom`, `blast`, `calls`, `reveal`, `done` and `shuffle`. Replay mode skips the welcome card. Add `#bare` to hide the notes, handy for clips and streams.
 
 ## Every pick, saved
 

@@ -76,6 +76,9 @@ body { margin: 0; background: var(--night); color: var(--ink); font: 400 17px/1.
 .steps p { margin: 0; font-size: 16px; }
 .big { font: 700 26px/1.1 var(--font); color: var(--gold); letter-spacing: .04em; }
 .api { font-size: 14px; color: var(--dim); margin-top: 4px; }
+.who-short { list-style: none; padding: 0; margin: 0 0 14px; display: grid; gap: 8px; }
+.who-short li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 10px; background: rgba(255,255,255,.05); font-size: 18px; }
+.who-short b { color: var(--ink); font-weight: 600; } .who-short span { color: var(--gold); font-weight: 600; }
 .tally { list-style: none; padding: 0; margin: 0 0 14px; display: grid; gap: 10px; }
 .tally li { display: grid; grid-template-columns: 120px 1fr 64px; gap: 12px; align-items: center; }
 .bar { height: 12px; border-radius: 6px; background: rgba(255,255,255,.08); overflow: hidden; }
@@ -158,11 +161,10 @@ body { margin: 0; background: var(--night); color: var(--ink); font: 400 17px/1.
     <div class="overlay" id="intro" hidden>
       <div class="card">
         <h2>Pay Dirt</h2>
-        <p class="sub">A tiny AI learns a famous puzzle by mining for gold. It’s already digging behind this card.</p>
-        <p>Three tunnels. Only one has gold. The crew picks one. Then someone might light dynamite in one of the <b>other</b> two, and that tunnel is out. Each miner then decides: <b>stay</b> with the pick, or <b>switch</b> to the tunnel that’s left.</p>
-        <p>Whether switching is smart depends on who lit the dynamite:</p>
-        <ul class="steps" id="introSpirits"></ul>
-        <p>Watch the <b>Rookie</b> (blue shirt), a small AI that starts out knowing nothing. Next to him are <b>Old Timer</b> (green), who knows every trick, and <b>Bookworm</b> (orange), who always switches because that’s what the book says.</p>
+        <p class="sub">Three tunnels. One has gold. After the crew picks, someone blows up one of the other tunnels. Stay or switch?</p>
+        <p>It depends on who lit the fuse:</p>
+        <ul class="who-short" id="introSpirits"></ul>
+        <p>The miner in the blue shirt is a small AI. Nobody tells it any of this. Watch it figure it out.</p>
         <div class="cardbtns"><span></span><button type="button" class="btn" id="btnIntro">Watch them dig</button></div>
       </div>
     </div>

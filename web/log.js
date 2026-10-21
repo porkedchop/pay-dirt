@@ -34,7 +34,8 @@ export class DecisionLog {
     try {
       const open = indexedDB.open(DB, 1);
       open.onupgradeneeded = () => open.result.createObjectStore(STORE, { autoIncrement: true });
-      this.db = await req(open);
+      // never hold up the page for storage. if it isnt open in 1.5s, keep picks in memory
+      this.db = await Promise.race([req(open), new Promise((_, rej) => setTimeout(() => rej(new Error('slow')), 1500))]);
       this.stored = await req(this.db.transaction(STORE).objectStore(STORE).count());
     } catch {
       this.db = null; // private window or blocked storage. still works in memory

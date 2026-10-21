@@ -7,7 +7,7 @@ import { createNoise3D } from 'simplex-noise';
 import { mulberry32 } from './sim.js';
 
 export const MINER_COLORS = { Oracle: 0x199e70, Apprentice: 0x3987e5, Parrot: 0xd95926 };
-const SPOTS = { Oracle: [-4, 6.9], Apprentice: [0, 6], Parrot: [4, 6.9] };
+const SPOTS = { Oracle: [-4.5, 7.6], Apprentice: [0, 7], Parrot: [4.5, 7.6] };
 const STYLES = {
   Oracle: { shirt: 0x2f8a63, pants: 0x4a4035, helmet: 0x7d6a3a, beard: 0xd8d4cc, stoop: 0.12, pick: true },
   Apprentice: { shirt: 0x3d7fd6, pants: 0x3c4a63, helmet: 0xf2c230, beard: null, stoop: 0, pick: true },
@@ -22,7 +22,7 @@ const HIDDEN = new THREE.MeshBasicMaterial({ visible: false });
 const flat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.92, ...extra });
 const MAT = {
   wood: flat(0x6b4a2b), woodDark: flat(0x4a321d), iron: flat(0x62666b, { metalness: 0.5, roughness: 0.5 }),
-  rock: flat(0x4b4239), rubble: flat(0x3e3630), stem: flat(0xd8ccb4),
+  rock: flat(0x4b4239), rubble: flat(0x7a6a58), stem: flat(0xd8ccb4),
   cap: flat(0x7fd6c9, { emissive: 0x1f8f86, emissiveIntensity: 0.9 }),
   crystal: flat(0xb79cf0, { emissive: 0x4b2a8a, emissiveIntensity: 0.7, roughness: 0.3 }),
   ore: flat(0xe7b84f, { emissive: 0x8a5a10, emissiveIntensity: 1.2, metalness: 0.6, roughness: 0.25 }),
@@ -94,7 +94,7 @@ export class Cave {
       return s;
     });
     this.home = this.crew.Apprentice.home;
-    this.camPos = new THREE.Vector3(0, 7.4, 18);
+    this.camPos = new THREE.Vector3(0, 10, 19);
     this.camLook = new THREE.Vector3(0, 3.5, -10);
     this.goalPos = this.camPos.clone();
     this.goalLook = this.camLook.clone();
@@ -343,8 +343,8 @@ export class Cave {
       c.m.rotation.set(0, 0, 0);
       c.aim.set(c.home.x, 2, BACK - 5);
     }
-    this.goalPos.set(0, 7.4, 18);
-    this.goalLook.set(0, 3.2, -10);
+    this.goalPos.set(0, 10, 19);
+    this.goalLook.set(0, 2.4, -10);
   }
 
   aimAll(point) { for (const c of Object.values(this.crew)) c.aim.copy(point); }
@@ -363,7 +363,7 @@ export class Cave {
   }
 
   settle() {
-    for (const e of [...this.effects]) if (e.kind === 'fuse' && !e.done) { e.done = true; this.explode(e.t0, e.ring, e.tnt); }
+    for (const e of [...this.effects]) if (e.kind === 'fuse' && !e.fired) { e.fired = true; this.explode(e.t0, e.ring, e.tnt); e.done(); }
     for (const e of this.effects) if (e.kind === 'fall') e.group.children.forEach((m) => { m.visible = true; m.position.copy(m.userData.rest); });
     this.effects = this.effects.filter((e) => e.kind !== 'fall');
   }
@@ -374,12 +374,12 @@ export class Cave {
     this.labels.forEach((l, i) => { l.material.opacity = i === t ? 1 : 0.5; });
   }
 
-  // someone lights dynamite at the mouth of tunnel t. the fuse burns, then boom
-  blast(t, ring) {
+  // someone lights dynamite at the mouth of tunnel t. the fuse burns, then boom. resolves when it goes off
+  blast(t, ring, fuseSeconds = 2) {
     const tn = this.tunnels[t];
     const tnt = new THREE.Group();
     for (const [x, z] of [[-0.28, 0], [0.28, 0], [0, 0.3]]) {
-      const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 1.3, 8), MAT.tnt);
+      const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.7, 8), MAT.tnt);
       stick.position.set(x, 0.65, z);
       tnt.add(stick);
     }
@@ -388,9 +388,10 @@ export class Cave {
     const spark = glow(0xffd27a, 1.2);
     spark.position.set(-0.15, 2, 0.1);
     tnt.add(fuse, spark);
-    tnt.position.set(tn.x, 0, BACK + 1.6);
+    tnt.position.set(tn.x + (tn.x > 0 ? -1.9 : 1.9), 2.2, BACK + 1.1); // strapped to the inside of the timber post
+    this.aimAll(tnt.position.clone().add(new THREE.Vector3(0, 1, 0)));
     this.forkProps.add(tnt);
-    this.effects.push({ kind: 'fuse', start: performance.now(), tnt, spark, t0: t, ring });
+    return new Promise((done) => this.effects.push({ kind: 'fuse', start: performance.now(), tnt, spark, t0: t, ring, fuseSeconds, done }));
   }
 
   explode(t, ring, tnt) {
@@ -399,27 +400,27 @@ export class Cave {
     const now = performance.now();
     const rubble = new THREE.Group();
     const rng = mulberry32(t * 7919 + 13);
-    for (let i = 0; i < 18; i++) {
-      const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6 + rng() * 1.1, 0), MAT.rubble);
+    for (let i = 0; i < 28; i++) {
+      const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.7 + rng() * 1.2, 0), MAT.rubble);
       m.userData.rest = new THREE.Vector3(tn.x + (rng() - 0.5) * 4.2, 0.3 + rng() * 4.2, BACK + 0.4 + rng() * 1.2); // piled in the mouth
       m.position.copy(m.userData.rest).add(new THREE.Vector3(0, 5, 0));
       m.visible = false;
-      m.userData.delay = 0.05 + rng() * 0.35;
+      m.userData.delay = 0.05 + rng() * 0.6;
       rubble.add(m);
     }
     this.forkProps.add(rubble);
     this.effects.push({ kind: 'fall', group: rubble, start: now });
     this.pulse.color.setHex(0xffa040);
     this.pulse.position.copy(tn.mouth).add(new THREE.Vector3(0, 0, 2.5));
-    this.effects.push({ kind: 'pulse', start: now, peak: 14 });
+    this.effects.push({ kind: 'pulse', start: now, peak: 18 });
     const burst = makeBurst(tn.mouth);
     this.forkProps.add(burst.points);
     this.effects.push({ kind: 'burst', start: now, burst });
-    const flash = glow(0xffc070, 16);
+    const flash = glow(0xffc070, 22);
     flash.position.copy(tn.mouth).add(new THREE.Vector3(0, 0.5, 1));
     this.forkProps.add(flash);
     this.effects.push({ kind: 'flash', start: now, flash });
-    this.shakeUntil = now + 600;
+    this.shakeUntil = now + 900;
     this.labels[t].material.opacity = 0.2;
     if (ring) { this.ore.visible = true; this.effects.push({ kind: 'ore', start: now, bury: true }); }
   }
@@ -445,7 +446,7 @@ export class Cave {
   closeUp(on) {
     this.close = on;
     if (on) { this.goalPos.set(1.8, 4.6, this.home.z - 3.6); this.goalLook.set(0, 3.6, this.home.z); }
-    else { this.goalPos.set(0, 7.4, 18); this.goalLook.set(0, 3.2, -10); }
+    else { this.goalPos.set(0, 10, 19); this.goalLook.set(0, 2.4, -10); }
   }
 
   // everyone walks into the tunnel he chose
@@ -478,10 +479,10 @@ export class Cave {
       c.beam.lookAt(c.lamp.target.position);
     }
     const rk = this.crew.Apprentice;
-    if (rk.walk) this.goalPos.set(rk.m.position.x * 0.2, 6.2, Math.max(BACK + 11, rk.m.position.z + 10));
+    if (rk.walk) this.goalPos.set(rk.m.position.x * 0.2, 9, Math.max(BACK + 12, rk.m.position.z + 11));
     this.camPos.lerp(this.goalPos, 0.05);
     this.camLook.lerp(this.goalLook, 0.05);
-    const shake = this.shakeUntil > performance.now() ? (this.shakeUntil - performance.now()) / 600 : 0;
+    const shake = this.shakeUntil > performance.now() ? (this.shakeUntil - performance.now()) / 900 : 0;
     this.camera.position.set(this.camPos.x + Math.sin(time * 0.4) * 0.1 + (Math.random() - 0.5) * shake * 0.8,
       this.camPos.y + Math.sin(time * 0.31) * 0.08 + (Math.random() - 0.5) * shake * 0.6, this.camPos.z);
     this.camera.lookAt(this.camLook);
@@ -490,22 +491,22 @@ export class Cave {
       e.t = (performance.now() - e.start) / 1000; // real clock so slow frames dont stall an effect
       if (e.kind === 'fuse') {
         e.spark.scale.setScalar(0.8 + Math.random() * 0.9);
-        e.spark.position.y = 2 - e.t * 0.35;
-        if (e.t > 0.9 && !e.done) { e.done = true; this.explode(e.t0, e.ring, e.tnt); }
+        e.spark.position.y = 2 - (e.t / e.fuseSeconds) * 0.7;
+        if (e.t > e.fuseSeconds && !e.fired) { e.fired = true; this.explode(e.t0, e.ring, e.tnt); e.done(); }
       } else if (e.kind === 'burst') {
         stepBurst(e.burst, e.t);
       } else if (e.kind === 'flash') {
-        const k = Math.max(0, 1 - e.t / 0.45);
-        e.flash.material.opacity = k; e.flash.scale.setScalar(10 + 14 * (1 - k));
+        const k = Math.max(0, 1 - e.t / 1.0);
+        e.flash.material.opacity = k; e.flash.scale.setScalar(12 + 20 * (1 - k));
       } else if (e.kind === 'fall') {
         e.group.children.forEach((m) => {
-          const k = Math.max(0, Math.min(1, (e.t - m.userData.delay) / 0.4));
+          const k = Math.max(0, Math.min(1, (e.t - m.userData.delay) / 0.7));
           m.visible = e.t >= m.userData.delay;
           m.position.y = m.userData.rest.y + (1 - k * k) * 5;
           m.rotation.x += dt * (1 - k) * 4;
         });
       } else if (e.kind === 'pulse') {
-        this.pulse.intensity = e.peak * Math.max(0, 1 - e.t / 0.9);
+        this.pulse.intensity = e.peak * Math.max(0, 1 - e.t / 1.6);
       } else if (e.kind === 'shine') {
         this.ore.rotation.y += dt * 0.5;
         this.oreLight.intensity = 3.4 + 0.8 * Math.sin(time * 5);
@@ -602,8 +603,8 @@ function buildMiner(st) {
   add(new THREE.CylinderGeometry(0.88, 0.88, 0.07, 14), helmet, 0, 0.26, 0, head);
   const lamp = add(new THREE.SphereGeometry(0.15, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff0c8 }), 0, 0.5, -0.7, head);
   if (st.book) {
-    arm(-0.86, [-1.1, 0, 0.35]);
-    arm(0.86, [-1.1, 0, -0.35]);
+    arm(-0.86, [1.15, 0, 0.3]); // both hands out in front holding the book
+    arm(0.86, [1.15, 0, -0.3]);
     const book = new THREE.Group();
     add(new THREE.BoxGeometry(0.9, 0.12, 0.66), mat(0x8a2b2b), 0, 0, 0, book);
     add(new THREE.BoxGeometry(0.84, 0.1, 0.6), mat(0xf1e9d2), 0, 0.08, 0, book);
@@ -612,7 +613,7 @@ function buildMiner(st) {
     torso.add(book);
   } else {
     arm(-0.86, [0, 0, 0.12]);
-    arm(0.86, [-0.2, 0, -0.55]);
+    arm(0.86, [0.35, 0, -0.45]);
   }
   if (st.pick) {
     // pickaxe slung across his back, head up over the right shoulder so it reads from behind

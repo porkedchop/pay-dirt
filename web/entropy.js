@@ -47,14 +47,15 @@ export class WeatherDice {
   }
 
   async start() {
-    await this.fetchWeather();
-    // couldnt reach the api: the saved reading never changes, so mix in the browser's own randomness
+    // give the weather 2.5s. if its slower the mine starts on the saved reading and switches when it lands
+    const first = this.fetchWeather();
+    await Promise.race([first, new Promise((r) => setTimeout(r, 2500))]);
+    // the saved reading never changes, so mix in the browser's own randomness until live weather arrives
     if (!this.live) { const a = new Uint32Array(1); crypto.getRandomValues(a); this.salt = `|browser ${a[0]}`; }
     await this.refill();
-    if (this.live) {
-      this.nextCheck = Date.now() + EVERY;
-      setInterval(async () => { this.nextCheck = Date.now() + EVERY; await this.fetchWeather(); }, EVERY);
-    }
+    first.then(() => { if (this.live) this.salt = ''; });
+    this.nextCheck = Date.now() + EVERY;
+    setInterval(async () => { this.nextCheck = Date.now() + EVERY; await this.fetchWeather(); if (this.live) this.salt = ''; }, EVERY);
     return this;
   }
 
