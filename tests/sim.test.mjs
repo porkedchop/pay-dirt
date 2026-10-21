@@ -25,7 +25,7 @@ test('Tommy is classic Monty Hall: switching wins 2 in 3', () => {
   close(r.stay, 1 / 3, 'stay'); close(r.sw, 2 / 3, 'switch');
 });
 
-test('The Creaks is Monty Fall: a hollow knock is a coin flip', () => {
+test('Loose Fuse is Monty Fall: a random blast is a coin flip', () => {
   const d = decide(oneHot(CREAKS), 0, 1, false);
   close(d.pStay, 0.5, 'stay'); close(d.pSwitch, 0.5, 'switch');
 });

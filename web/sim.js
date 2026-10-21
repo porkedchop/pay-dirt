@@ -21,21 +21,21 @@ export function fnv1a(str) {
   return h >>> 0;
 }
 
-// same knock, opposite meaning depending on who knocked
+// same blast, opposite meaning depending on who lit it. in code a blast is still k (the knocked tunnel)
 export const TOMMY = 0; // monty hall
 export const CREAKS = 1; // monty fall
 export const JOKER = 2; // monty from hell
 
 export const SPIRITS = [
-  { id: TOMMY, name: 'Tommy', monty: 'classic Monty Hall',
-    rule: 'A friendly spirit who knows where the ore is. Always knocks on an empty tunnel you didn’t pick.',
-    lesson: 'Switch. He knows, so the odds jump to 2 in 3.' },
-  { id: CREAKS, name: 'The Creaks', monty: 'Monty slipped',
-    rule: 'No spirit at all, just old timbers settling at random. Sometimes right on top of the ore.',
-    lesson: 'Coin flip. A random creak tells you nothing.' },
-  { id: JOKER, name: 'The Joker', monty: 'evil Monty',
-    rule: 'Only knocks when you already picked right, hoping you’ll bail.',
-    lesson: 'Knock means stay. Silence means switch.' },
+  { id: TOMMY, name: 'Tommy', short: 'Tommy',
+    rule: 'The friendly foreman. He knows where the gold is and always blows up an empty tunnel you didn’t pick.',
+    lesson: 'Switch. He knows, so switching wins 2 out of 3 times.' },
+  { id: CREAKS, name: 'Loose Fuse', short: 'Loose Fuse',
+    rule: 'Old dynamite left behind that goes off at random. Sometimes it buries the gold.',
+    lesson: 'Coin flip. A random blast tells you nothing.' },
+  { id: JOKER, name: 'The Joker', short: 'Joker',
+    rule: 'A prankster who only blows up a tunnel when you already picked the gold, hoping you’ll leave.',
+    lesson: 'Blast means stay. No blast means switch.' },
 ];
 
 export const DEFAULTS = { prior: [0.4, 0.3, 0.3], regionMin: 12, regionSpan: 20 };
@@ -44,7 +44,7 @@ export function othersOf(pick) {
   return [0, 1, 2].filter((t) => t !== pick);
 }
 
-// k = knocked tunnel or null for silence. ring = the knock buried the ore (creaks only)
+// k = blown up tunnel or null for no blast. ring = the blast buried the gold (loose fuse only)
 export function knock(spirit, ore, pick, u) {
   const o = othersOf(pick);
   const coin = o[u < 0.5 ? 0 : 1];

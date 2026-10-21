@@ -20,6 +20,7 @@ const MAT = {
   cap: flat(0x7fd6c9, { emissive: 0x1f8f86, emissiveIntensity: 0.9 }),
   crystal: flat(0xb79cf0, { emissive: 0x4b2a8a, emissiveIntensity: 0.7, roughness: 0.3 }),
   ore: flat(0xe7b84f, { emissive: 0x8a5a10, emissiveIntensity: 1.2, metalness: 0.6, roughness: 0.25 }),
+  tnt: flat(0xc0392b, { roughness: 0.6 }), fuse: flat(0x2b2118),
   puddle: new THREE.MeshStandardMaterial({ color: 0x0d1820, metalness: 0.9, roughness: 0.08, transparent: true, opacity: 0.85 }),
 };
 
@@ -51,7 +52,7 @@ export class Cave {
     this.clock = new THREE.Clock();
 
     this.scene.add(new THREE.HemisphereLight(0x9a8a72, 0x1a140c, 0.75));
-    this.lamp = new THREE.SpotLight(0xffdcaa, 3.2, 70, 0.45, 0.6, 0);
+    this.lamp = new THREE.SpotLight(0xffdcaa, 3.6, 70, 0.22, 0.5, 0);
     this.lamp.target = new THREE.Object3D();
     this.lantern = new THREE.PointLight(0xffb866, 2.2, 26, 0);
     this.lantern.position.set(ARCH_X[0] + 4, 5.2, BACK + 1.2);
@@ -68,7 +69,7 @@ export class Cave {
 
     this.miner = buildMiner();
     this.scene.add(this.miner);
-    const beamGeo = new THREE.ConeGeometry(3.6, 22, 18, 1, true);
+    const beamGeo = new THREE.ConeGeometry(2.4, 22, 18, 1, true);
     beamGeo.translate(0, -11, 0);
     beamGeo.rotateX(-Math.PI / 2);
     this.beam = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: 0xffe2a8, transparent: true, opacity: 0.05, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false }));
@@ -111,6 +112,9 @@ export class Cave {
     const w = c.clientWidth || 800, h = c.clientHeight || 500;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
+    // keep about 76 degrees side to side so all three tunnels fit on a tall phone screen
+    const vfov = (2 * Math.atan(Math.tan((38 * Math.PI) / 180) / this.camera.aspect) * 180) / Math.PI;
+    this.camera.fov = Math.min(100, Math.max(60, vfov));
     this.camera.updateProjectionMatrix();
   }
 
@@ -326,12 +330,13 @@ export class Cave {
       m.rotation.set(rng() * 3, rng() * 3, rng() * 3);
       this.ore.add(m);
     }
-    this.ore.position.copy(this.tunnels[f.ore].pocket);
+    this.ore.position.set(this.tunnels[f.ore].x, 1.4, BACK - 4.5); // just inside the arch so it shows through
     this.ore.visible = false;
     this.forkProps.add(this.ore);
     this.oreLight.intensity = 0;
-    this.oreLight.position.copy(this.tunnels[f.ore].pocket).add(new THREE.Vector3(0, 1, 2));
+    this.oreLight.position.set(this.tunnels[f.ore].x, 3, BACK - 2);
     this.pulse.intensity = 0;
+    this.shakeUntil = 0;
     this.labels.forEach((l) => { l.material.opacity = 0.7; });
     Object.values(this.lanterns).forEach((l) => { l.visible = false; });
     this.walk = null;
@@ -342,29 +347,79 @@ export class Cave {
     this.lampAim = new THREE.Vector3(0, 2, BACK);
   }
 
+  // the headlamp always points where the rookie is about to go
+  aim(t) { this.lampAim = this.inside(t); }
+
+  // a point a few meters down the tunnel so the beam goes in, not onto the pillar beside it
+  inside(t) { return new THREE.Vector3(this.tunnels[t].x, 2, BACK - 5); }
+
+  // light up the pile of rubble so you can see the tunnel is blocked. also lands any rock still in the air
+  inspect(t) {
+    this.lampAim = new THREE.Vector3(this.tunnels[t].x, 1.6, BACK + 1); // the rubble pile
+    this.goalLook.set(this.tunnels[t].x * 0.12, 3, -10);
+    this.settle();
+  }
+
+  settle() {
+    for (const e of [...this.effects]) if (e.kind === 'fuse' && !e.done) { e.done = true; this.explode(e.t0, e.ring, e.tnt); }
+    for (const e of this.effects) if (e.kind === 'fall') e.group.children.forEach((m) => { m.visible = true; m.position.copy(m.userData.rest); });
+    this.effects = this.effects.filter((e) => e.kind !== 'fall');
+  }
+
   pick(t) {
-    this.lampAim = this.tunnels[t].mouth.clone();
+    this.lampAim = this.inside(t);
     this.goalLook.set(this.tunnels[t].x * 0.12, 3.5, -10); // a small nod, not a swing
     this.labels.forEach((l, i) => { l.material.opacity = i === t ? 1 : 0.5; });
   }
 
-  knock(t, ring) {
+  // someone lights dynamite at the mouth of tunnel t. the fuse burns, then boom
+  blast(t, ring) {
     const tn = this.tunnels[t];
+    const tnt = new THREE.Group();
+    for (const [x, z] of [[-0.28, 0], [0.28, 0], [0, 0.3]]) {
+      const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 1.3, 8), MAT.tnt);
+      stick.position.set(x, 0.65, z);
+      tnt.add(stick);
+    }
+    const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8, 4), MAT.fuse);
+    fuse.position.set(0, 1.6, 0.1); fuse.rotation.z = 0.4;
+    const spark = glow(0xffd27a, 1.2);
+    spark.position.set(-0.15, 2, 0.1);
+    tnt.add(fuse, spark);
+    tnt.position.set(tn.x, 0, BACK + 1.6);
+    this.forkProps.add(tnt);
+    this.effects.push({ kind: 'fuse', start: performance.now(), tnt, spark, t0: t, ring });
+  }
+
+  explode(t, ring, tnt) {
+    const tn = this.tunnels[t];
+    this.forkProps.remove(tnt);
+    const now = performance.now();
     const rubble = new THREE.Group();
     const rng = mulberry32(t * 7919 + 13);
     for (let i = 0; i < 18; i++) {
       const m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6 + rng() * 1.1, 0), MAT.rubble);
-      m.userData.rest = new THREE.Vector3(tn.x + (rng() - 0.5) * 4.4, rng() * 4.5, BACK - 1 + (rng() - 0.5) * 1.5);
-      m.position.copy(m.userData.rest).add(new THREE.Vector3(0, 9, 0));
-      m.userData.delay = rng() * 0.5;
+      m.userData.rest = new THREE.Vector3(tn.x + (rng() - 0.5) * 4.2, 0.3 + rng() * 4.2, BACK + 0.4 + rng() * 1.2); // piled in the mouth
+      m.position.copy(m.userData.rest).add(new THREE.Vector3(0, 5, 0));
+      m.visible = false;
+      m.userData.delay = 0.05 + rng() * 0.35;
       rubble.add(m);
     }
     this.forkProps.add(rubble);
-    this.effects.push({ kind: 'fall', group: rubble, start: performance.now() });
-    this.pulse.position.copy(tn.mouth).add(new THREE.Vector3(0, 0, 2));
-    this.effects.push({ kind: 'pulse', start: performance.now(), peak: ring ? 6 : 3 });
+    this.effects.push({ kind: 'fall', group: rubble, start: now });
+    this.pulse.color.setHex(0xffa040);
+    this.pulse.position.copy(tn.mouth).add(new THREE.Vector3(0, 0, 2.5));
+    this.effects.push({ kind: 'pulse', start: now, peak: 14 });
+    const burst = makeBurst(tn.mouth);
+    this.forkProps.add(burst.points);
+    this.effects.push({ kind: 'burst', start: now, burst });
+    const flash = glow(0xffc070, 16);
+    flash.position.copy(tn.mouth).add(new THREE.Vector3(0, 0.5, 1));
+    this.forkProps.add(flash);
+    this.effects.push({ kind: 'flash', start: now, flash });
+    this.shakeUntil = now + 600;
     this.labels[t].material.opacity = 0.2;
-    if (ring) { this.ore.visible = true; this.effects.push({ kind: 'ore', start: performance.now(), bury: true }); } // ring means it landed on the ore
+    if (ring) { this.ore.visible = true; this.effects.push({ kind: 'ore', start: now, bury: true }); }
   }
 
   showCalls(calls, f) {
@@ -382,8 +437,16 @@ export class Cave {
   reveal(f) {
     if (f.ring) return;
     this.ore.visible = true;
-    this.effects.push({ kind: 'ore', start: performance.now() });
-    this.lampAim = this.tunnels[f.ore].pocket.clone();
+    this.ore.scale.setScalar(1);
+    this.oreLight.intensity = 4;
+    this.effects.push({ kind: 'shine', start: performance.now() });
+  }
+
+  // camera moves in on the miner for the between-parts recap
+  closeUp(on) {
+    this.close = on;
+    if (on) { this.goalPos.set(2.6, 4.6, this.home.z - 3.4); this.goalLook.set(0, 3.7, this.home.z); }
+    else { this.goalPos.set(0, 6.5, 16); this.goalLook.set(0, 3.5, -10); }
   }
 
   advance(t) {
@@ -407,26 +470,45 @@ export class Cave {
     this.miner.children[0].position.y = Math.sin(time * (this.walk ? 9 : 1.6)) * (this.walk ? 0.1 : 0.04);
     this.camPos.lerp(this.goalPos, 0.05);
     this.camLook.lerp(this.goalLook, 0.05);
-    this.camera.position.set(this.camPos.x + Math.sin(time * 0.4) * 0.1, this.camPos.y + Math.sin(time * 0.31) * 0.08, this.camPos.z);
+    const shake = this.shakeUntil > performance.now() ? (this.shakeUntil - performance.now()) / 600 : 0;
+    this.camera.position.set(this.camPos.x + Math.sin(time * 0.4) * 0.1 + (Math.random() - 0.5) * shake * 0.8,
+      this.camPos.y + Math.sin(time * 0.31) * 0.08 + (Math.random() - 0.5) * shake * 0.6, this.camPos.z);
     this.camera.lookAt(this.camLook);
 
     const head = this.miner.userData.lamp.getWorldPosition(new THREE.Vector3());
     this.lamp.position.copy(head);
-    this.lamp.target.position.lerp(this.lampAim, 0.08);
+    this.lamp.target.position.lerp(this.lampAim, 0.14);
+    if (!this.walk) { // turn to face where the lamp is going
+      const want = Math.atan2(-(this.lampAim.x - this.miner.position.x), -(this.lampAim.z - this.miner.position.z));
+      this.miner.rotation.y += (want - this.miner.rotation.y) * 0.12;
+    }
     this.lamp.intensity = 3.2 * (0.96 + 0.04 * Math.sin(time * 23) * Math.sin(time * 7));
     this.beam.position.copy(head);
     this.beam.lookAt(this.lamp.target.position);
 
-    for (const e of this.effects) {
+    for (const e of [...this.effects]) {
       e.t = (performance.now() - e.start) / 1000; // real clock so slow frames dont stall an effect
-      if (e.kind === 'fall') {
+      if (e.kind === 'fuse') {
+        e.spark.scale.setScalar(0.8 + Math.random() * 0.9);
+        e.spark.position.y = 2 - e.t * 0.35;
+        if (e.t > 0.9 && !e.done) { e.done = true; this.explode(e.t0, e.ring, e.tnt); }
+      } else if (e.kind === 'burst') {
+        stepBurst(e.burst, e.t);
+      } else if (e.kind === 'flash') {
+        const k = Math.max(0, 1 - e.t / 0.45);
+        e.flash.material.opacity = k; e.flash.scale.setScalar(10 + 14 * (1 - k));
+      } else if (e.kind === 'fall') {
         e.group.children.forEach((m) => {
-          const k = Math.max(0, Math.min(1, (e.t - m.userData.delay) / 0.5));
-          m.position.y = m.userData.rest.y + (1 - k * k) * 9;
+          const k = Math.max(0, Math.min(1, (e.t - m.userData.delay) / 0.4));
+          m.visible = e.t >= m.userData.delay;
+          m.position.y = m.userData.rest.y + (1 - k * k) * 5;
           m.rotation.x += dt * (1 - k) * 4;
         });
       } else if (e.kind === 'pulse') {
-        this.pulse.intensity = e.peak * Math.max(0, 1 - e.t / 1.2) * (0.6 + 0.4 * Math.sin(e.t * 30));
+        this.pulse.intensity = e.peak * Math.max(0, 1 - e.t / 0.9);
+      } else if (e.kind === 'shine') {
+        this.ore.rotation.y += dt * 0.5;
+        this.oreLight.intensity = 3.4 + 0.8 * Math.sin(time * 5);
       } else if (e.kind === 'ore') {
         const s = e.bury ? Math.max(0.01, 1 - e.t / 1.4) : Math.min(1, e.t / 0.6);
         this.ore.scale.setScalar(s);
@@ -439,6 +521,25 @@ export class Cave {
     for (const l of Object.values(this.lanterns)) if (l.visible) l.children[0].position.y = Math.sin(time * 2 + l.position.x) * 0.2;
     this.renderer.render(this.scene, this.camera);
   }
+}
+
+function makeBurst(at) {
+  const n = 90, g = new THREE.BufferGeometry(), pos = new Float32Array(n * 3), vel = [];
+  for (let i = 0; i < n; i++) {
+    pos.set([at.x, at.y, at.z + 1], i * 3);
+    vel.push(new THREE.Vector3((Math.random() - 0.5) * 16, Math.random() * 10 + 2, Math.random() * 9));
+  }
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const points = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffb060, size: 0.35, transparent: true, depthWrite: false }));
+  return { points, vel, at: at.clone().add(new THREE.Vector3(0, 0, 1)) };
+}
+
+function stepBurst(b, t) {
+  const a = b.points.geometry.attributes.position;
+  b.vel.forEach((v, i) => a.setXYZ(i, b.at.x + v.x * t, Math.max(0.1, b.at.y + v.y * t - 9 * t * t), b.at.z + v.z * t));
+  a.needsUpdate = true;
+  b.points.material.opacity = Math.max(0, 1 - t / 1.4);
+  b.points.material.color.setHSL(0.08, 1, Math.max(0.25, 0.65 - t * 0.3));
 }
 
 function roughen(geo, noise, amp) {
@@ -516,12 +617,23 @@ function buildMiner() {
   add(new THREE.SphereGeometry(0.66, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), helmet, 0, 4.1, 0);
   add(new THREE.CylinderGeometry(0.88, 0.88, 0.07, 14), helmet, 0, 4.12, 0);
   const lamp = add(new THREE.SphereGeometry(0.15, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff0c8 }), 0, 4.36, -0.7);
+  // pickaxe slung across his back, head up over the right shoulder so it reads from behind
+  const steel = mat(0xdfe4ea, { metalness: 0.3, roughness: 0.4, emissive: 0x2a2d31 }), handleWood = mat(0xa8743f);
   const pick = new THREE.Group();
-  const head = new THREE.Mesh(new THREE.ConeGeometry(0.1, 2.2, 4), iron);
-  head.rotation.z = Math.PI / 2; head.position.y = 1.35;
-  pick.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 2.8, 6), wood), head);
-  pick.position.set(0, -1.1, -0.2); pick.rotation.set(0.6, 0, 0.2);
-  armR.add(pick);
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 3.4, 8), handleWood);
+  const collar = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.34, 0.34), steel);
+  collar.position.y = 1.62;
+  pick.add(handle, collar);
+  for (const side of [-1, 1]) {
+    const blade = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.5, 6), steel);
+    blade.rotation.z = side * -(Math.PI / 2 - 0.28); // tips droop a little, the classic curve
+    blade.position.set(side * 0.82, 1.5, 0);
+    pick.add(blade);
+  }
+  pick.position.set(0.25, 2.9, 0.62);
+  pick.rotation.set(0, 0, -0.62);
+  body.add(pick);
+  armR.rotation.set(-0.2, 0, -0.55); // hand up on the handle
   root.userData.lamp = lamp;
   return root;
 }

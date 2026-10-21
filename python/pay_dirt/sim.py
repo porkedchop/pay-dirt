@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 TOMMY, CREAKS, JOKER = 0, 1, 2
-SPIRIT_NAMES = ["Tommy", "The Creaks", "The Joker"]
+SPIRIT_NAMES = ["Tommy", "Loose Fuse", "The Joker"]
 DEFAULTS = dict(prior=(0.4, 0.3, 0.3), region_min=12, region_span=20)
 M32 = 0xFFFFFFFF
 
